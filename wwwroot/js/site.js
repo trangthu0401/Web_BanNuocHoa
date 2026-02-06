@@ -1,4 +1,4 @@
-﻿// Simple JavaScript for Orchard.vn clone
+﻿// Simple JavaScript for PerfumeStore.vn clone
 
 // Toast notification function
 function showToast(message, type = 'info') {
@@ -165,6 +165,17 @@ document.addEventListener('DOMContentLoaded', function () {
             const img = card.querySelector('.card-img-top');
             const imageUrl = img ? img.src : '/images/default-product.jpg';
             
+            // Get ProductId from the link URL (e.g., /Product/Index/123)
+            let productId = 0;
+            const productLink = card.querySelector('a[href*="/Product/Index/"]');
+            if (productLink) {
+                const href = productLink.getAttribute('href');
+                const match = href.match(/\/Product\/Index\/(\d+)/);
+                if (match) {
+                    productId = parseInt(match[1]);
+                }
+            }
+            
             // Disable button temporarily
             btn.disabled = true;
             btn.classList.add('disabled');
@@ -175,6 +186,9 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('imageUrl', imageUrl);
             formData.append('name', productName);
             formData.append('price', price);
+            if (productId > 0) {
+                formData.append('productId', productId);
+            }
             
             // Get anti-forgery token
             const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;

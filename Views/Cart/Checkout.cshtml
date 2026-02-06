@@ -1,7 +1,4 @@
 @* 
-    ============================================
-    CHECKOUT PAGE - Trang thanh toán đơn hàng
-    ============================================
     Model: CheckoutViewModel - Chứa thông tin giỏ hàng, voucher, địa chỉ
     Chức năng chính:
     - Hiển thị form nhập thông tin khách hàng và địa chỉ giao hàng
@@ -168,14 +165,16 @@
                                         </div>
                                         <div class="payment-description">
                                             <p>Miễn phí giao hàng toàn quốc trên 63 tỉnh thành.</p>
-                                            <p>Thanh toán khi nhận hàng, bảo hành & đổi trả theo chính sách "Bảo hành đến giọt cuối cùng" của Orchard.vn.</p>
-                                            <p>Với một số đơn ngoại thành, quý khách có thể cần thanh toán trước từ 50-100K. Orchard sẽ liên hệ để xác nhận đơn hàng cùng quý khách. Một lần nữa Orchard xin cảm ơn quý khách!</p>
+                                            <p>Thanh toán khi nhận hàng, bảo hành & đổi trả theo chính sách "Bảo hành đến giọt cuối cùng" của PerfumeStore.vn.</p>
+                                            <p>Với một số đơn ngoại thành, quý khách có thể cần thanh toán trước từ 50-100K. PerfumeStore sẽ liên hệ để xác nhận đơn hàng cùng quý khách. Một lần nữa PerfumeStore xin cảm ơn quý khách!</p>
                                         </div>
                                     </label>
                                 </div>
                             </div>
 
-                            @* Phương thức 2: Chuyển khoản ngân hàng *@
+                            @* Phương thức 2: Chuyển khoản ngân hàng
+                               => Khi submit, CartController.ProcessCheckout sẽ lưu đơn rồi redirect sang PaymentController.CreatePaymentProgress để tạo link PayOS
+                            *@
                             <div class="payment-option">
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="PaymentMethod" id="paymentBank" value="BANK_TRANSFER">
@@ -205,15 +204,6 @@
                                 </button>
                             </div>
                             
-                            @* Debug info - Hiển thị thông tin voucher hiện tại (có thể xóa trong production) *@
-                            @if (Model.AppliedVoucher != null)
-                            {
-                                <small class="text-muted">Debug: Voucher = @Model.AppliedVoucher.Name (@Model.AppliedVoucher.Code)</small>
-                            }
-                            else
-                            {
-                                <small class="text-muted">Debug: No voucher applied</small>
-                            }
                             @* Thông báo khi voucher đã được áp dụng thành công *@
                             @if (Model.AppliedVoucher != null)
                             {
@@ -295,7 +285,7 @@
 
                     <!-- Copyright -->
                     <div class="copyright-section mt-4">
-                        <p class="copyright-text">Copyright © 2025, Orchard.vn. All rights reserved.</p>
+                        <p class="copyright-text">Copyright © 2025, PerfumeStore.vn. All rights reserved.</p>
                     </div>
                 </div>
             </div>

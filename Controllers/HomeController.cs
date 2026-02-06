@@ -18,14 +18,15 @@ namespace PerfumeStore.Controllers
 
         public IActionResult Index()
         {
-            var featured = _db.Products
-                .Include(p => p.ProductImages)
-                .Include(p => p.Brand)
-                .Include(p => p.Categories)
-                .Where(p => p.IsPublished == true)
-                .OrderByDescending(p => p.ProductId)
-                .Take(10)
-                .ToList();
+            List<Product> products = _db.Products
+                            .Include(p => p.ProductImages)
+                            .Include(p => p.Brand)
+                            .Include(p => p.Categories)
+                            .Where(p => p.IsPublished == true)
+                            .OrderByDescending(p => p.ProductId)
+                            .Take(10)
+                            .ToList();
+            var featured = products;
             return View(featured);
         }
 

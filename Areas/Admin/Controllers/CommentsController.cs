@@ -123,60 +123,7 @@ namespace PerfumeStore.Areas.Admin.Controllers
             return View(commentDetailsVMs);
         }
 
-        public async Task<IActionResult> Edit(int productId, int customerId)
-        {
-            var comment = await _db.Comments
-                .Include(c => c.Customer)
-                .Include(c => c.Product)
-                .FirstOrDefaultAsync(c => c.ProductId == productId && c.CustomerId == customerId);
 
-            if (comment == null)
-            {
-                return NotFound();
-            }
-
-            return View(comment);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int productId, int customerId, Comment comment)
-        {
-            if (productId != comment.ProductId || customerId != comment.CustomerId)
-            {
-                return NotFound();
-            }
-
-            var existingComment = await _db.Comments
-                .FirstOrDefaultAsync(c => c.ProductId == productId && c.CustomerId == customerId);
-
-            if (existingComment == null)
-            {
-                return NotFound();
-            }
-
-            // Get IsPublished from form (checkbox returns "true" when checked, "false" when unchecked)
-            var isPublishedValues = Request.Form["IsPublished"];
-            bool? isPublished = isPublishedValues.Contains("true") ? true : false;
-
-            // Update fields
-            existingComment.Rating = comment.Rating;
-            existingComment.Content = comment.Content;
-            existingComment.IsPublished = isPublished;
-
-            try
-            {
-                await _db.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Cập nhật bình luận thành công!";
-                return RedirectToAction(nameof(Details), new { productId });
-            }
-            catch (DbUpdateException)
-            {
-                ModelState.AddModelError("", "Không thể cập nhật bình luận. Vui lòng thử lại.");
-            }
-
-            return View(comment);
-        }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -224,7 +171,7 @@ namespace PerfumeStore.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Hide(int productId, int customerId)
+        public async Task<IActionResult> Unpublish(int productId, int customerId)
         {
             var comment = await _db.Comments
                 .FirstOrDefaultAsync(c => c.ProductId == productId && c.CustomerId == customerId);
@@ -240,6 +187,9 @@ namespace PerfumeStore.Areas.Admin.Controllers
             }
 
             comment.IsPublished = false;
+            
+            // Mark entity as modified to ensure EF tracks the change
+            _db.Entry(comment).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
 
             try
             {
@@ -265,6 +215,8 @@ namespace PerfumeStore.Areas.Admin.Controllers
                 return RedirectToAction(nameof(Details), new { productId });
             }
         }
+
+
 
         public async Task<IActionResult> Create(int? productId)
         {
@@ -343,6 +295,91 @@ namespace PerfumeStore.Areas.Admin.Controllers
                 .ToListAsync();
 
             return View(comment);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int productId, int customerId)
+        {
+            var comment = await _db.Comments
+                .FirstOrDefaultAsync(c => c.ProductId == productId && c.CustomerId == customerId);
+
+            if (comment == null)
+            {
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new { success = false, message = "Không tìm thấy bình luận" });
+                }
+                TempData["ErrorMessage"] = "Không tìm thấy bình luận";
+                return RedirectToAction(nameof(Details), new { productId });
+            }
+
+            try
+            {
+                _db.Comments.Remove(comment);
+                await _db.SaveChangesAsync();
+                
+                // Nếu là AJAX request, trả về JSON
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new { success = true, message = "Đã xóa bình luận!" });
+                }
+                
+                // Nếu là request thông thường, redirect về trang Details
+                TempData["SuccessMessage"] = "Đã xóa bình luận thành công!";
+                return RedirectToAction(nameof(Details), new { productId });
+            }
+            catch (Exception ex)
+            {
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                }
+                TempData["ErrorMessage"] = "Lỗi: " + ex.Message;
+                return RedirectToAction(nameof(Details), new { productId });
+            }
+        }
+
+        // Simple test action for unpublish
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> TestUnpublish(int productId, int customerId)
+        {
+            try
+            {
+                // Use raw SQL to update
+                var rowsAffected = await _db.Database.ExecuteSqlRawAsync(
+                    "UPDATE Comments SET IsPublished = 0 WHERE ProductId = {0} AND CustomerId = {1}",
+                    productId, customerId);
+
+                if (rowsAffected > 0)
+                {
+                    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
+                        return Json(new { success = true, message = "Đã ẩn bình luận!" });
+                    }
+                    TempData["SuccessMessage"] = "Đã ẩn bình luận thành công!";
+                }
+                else
+                {
+                    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
+                        return Json(new { success = false, message = "Không tìm thấy bình luận" });
+                    }
+                    TempData["ErrorMessage"] = "Không tìm thấy bình luận";
+                }
+
+                return RedirectToAction(nameof(Details), new { productId });
+            }
+            catch (Exception ex)
+            {
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                }
+                TempData["ErrorMessage"] = "Lỗi: " + ex.Message;
+                return RedirectToAction(nameof(Details), new { productId });
+            }
         }
     }
 }

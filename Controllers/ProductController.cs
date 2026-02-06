@@ -19,6 +19,8 @@ namespace PerfumeStore.Controllers
                 .Include(p => p.ProductImages)
                 .Include(p => p.Categories)
                 .Include(p => p.Liters)
+                .Include(p => p.Comments.Where(c => c.IsPublished == true))
+                .Include(p => p.OrderDetails)
                 .FirstOrDefaultAsync(p => p.ProductId == id);
 
             if (product == null)
@@ -57,6 +59,8 @@ namespace PerfumeStore.Controllers
 
             return View(product);
         }
+
+
 
         // Trả ảnh từ DB theo ProductID
         public IActionResult GetImage(int id)

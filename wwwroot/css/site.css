@@ -668,7 +668,7 @@ footer {
             color: white !important;
         }
 
-/* Orchard-style footer helpers */
+/* PerfumeStore-style footer helpers */
 .footer-wrapper {
     background-color: #333333;
     color: #ffffff;
@@ -1184,7 +1184,7 @@ footer {
     transform: scale(1.05);
 }
 
-/* Orchard-like category tiles */
+/* PerfumeStore-like category tiles */
 .category-tile {
     border-radius: 10px;
     overflow: hidden;

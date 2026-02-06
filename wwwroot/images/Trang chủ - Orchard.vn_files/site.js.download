@@ -1,4 +1,4 @@
-﻿// Simple JavaScript for Orchard.vn clone
+﻿// Simple JavaScript for PerfumeStore.vn clone
 document.addEventListener('DOMContentLoaded', function () {
     // Hero carousel autoplay
     const heroCarousel = document.getElementById('heroCarousel');

@@ -1,0 +1,143 @@
+@model int
+
+<button id="favoriteBtn-@Model" 
+        class="btn btn-outline-danger favorite-btn" 
+        data-product-id="@Model"
+        onclick="toggleFavoriteSimple(@Model)"
+        title="Thêm vào yêu thích">
+    <i id="favoriteIcon-@Model" class="bi bi-heart"></i>
+</button>
+
+<script>
+// Simple version without CSRF for testing
+function toggleFavoriteSimple(productId) {
+    // Check if user is logged in first
+    @if (User.Identity.IsAuthenticated)
+    {
+        <text>
+        var isFavorite = $('#favoriteIcon-' + productId).hasClass('bi-heart-fill');
+        
+        if (isFavorite) {
+            removeFavoriteSimple(productId);
+        } else {
+            addFavoriteSimple(productId);
+        }
+        </text>
+    }
+    else
+    {
+        <text>
+        alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích!');
+        window.location.href = '@Url.Action("Auth", "Auth")';
+        </text>
+    }
+}
+
+function addFavoriteSimple(productId) {
+    $.ajax({
+        url: '@Url.Action("AddToFavorites", "Favorites")',
+        type: 'POST',
+        data: { productId: productId },
+        success: function(response) {
+            if (response.success) {
+                updateFavoriteButtonSimple(productId, true);
+                showToastSimple(response.message, 'success');
+            } else {
+                showToastSimple(response.message, 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            showToastSimple('Có lỗi xảy ra. Vui lòng thử lại!', 'error');
+        }
+    });
+}
+
+function removeFavoriteSimple(productId) {
+    $.ajax({
+        url: '@Url.Action("RemoveFromFavorites", "Favorites")',
+        type: 'POST',
+        data: { productId: productId },
+        success: function(response) {
+            if (response.success) {
+                updateFavoriteButtonSimple(productId, false);
+                showToastSimple(response.message, 'success');
+            } else {
+                showToastSimple(response.message, 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            showToastSimple('Có lỗi xảy ra. Vui lòng thử lại!', 'error');
+        }
+    });
+}
+
+function updateFavoriteButtonSimple(productId, isFavorite) {
+    var icon = $('#favoriteIcon-' + productId + ', #testFavoriteIcon');
+    var btn = $('#favoriteBtn-' + productId + ', #favoriteBtn');
+    
+    // Add click animation
+    btn.addClass('animate-click');
+    setTimeout(function() {
+        btn.removeClass('animate-click');
+    }, 300);
+    
+    if (isFavorite) {
+        icon.removeClass('bi-heart').addClass('bi-heart-fill');
+        btn.removeClass('btn-outline-danger').addClass('btn-danger');
+        btn.attr('title', 'Xóa khỏi yêu thích');
+        
+        // Add heart animation
+        icon.addClass('animate-heart');
+        setTimeout(function() {
+            icon.removeClass('animate-heart');
+        }, 600);
+    } else {
+        icon.removeClass('bi-heart-fill').addClass('bi-heart');
+        btn.removeClass('btn-danger').addClass('btn-outline-danger');
+        btn.attr('title', 'Thêm vào yêu thích');
+    }
+}
+
+function showToastSimple(message, type) {
+    var toastClass = 'toast-notification ' + type;
+    var icon = type === 'success' ? 'bi-check-circle' : 'bi-exclamation-circle';
+    
+    var toast = $('<div class="alert ' + toastClass + ' alert-dismissible fade show" style="animation: slideInRight 0.3s ease;">' +
+                  '<div class="d-flex align-items-center">' +
+                  '<i class="bi ' + icon + ' me-2 fs-5"></i>' +
+                  '<span class="flex-grow-1">' + message + '</span>' +
+                  '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>' +
+                  '</div>' +
+                  '</div>');
+    
+    $('body').append(toast);
+    
+    setTimeout(function() {
+        toast.addClass('fade-out');
+        setTimeout(function() {
+            toast.remove();
+        }, 300);
+    }, 3000);
+}
+
+// Check favorite status on load
+$(document).ready(function() {
+    @if (User.Identity.IsAuthenticated)
+    {
+        <text>
+        $.ajax({
+            url: '@Url.Action("CheckFavorite", "Favorites")',
+            type: 'GET',
+            data: { productId: @Model },
+            success: function(response) {
+                updateFavoriteButtonSimple(@Model, response.isFavorite);
+            }
+        });
+        </text>
+    }
+});
+</script>
+
+<!-- CSS is now in favorites.css -->

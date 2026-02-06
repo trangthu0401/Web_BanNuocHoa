@@ -1,0 +1,156 @@
+@model int
+
+<button id="favoriteBtn-@Model" 
+        class="btn btn-outline-danger favorite-btn" 
+        data-product-id="@Model"
+        onclick="toggleFavorite(@Model)"
+        title="Thêm vào yêu thích">
+    <i id="favoriteIcon-@Model" class="bi bi-heart"></i>
+</button>
+
+<script>
+$(document).ready(function() {
+    checkFavoriteStatus(@Model);
+});
+
+function checkFavoriteStatus(productId) {
+    $.ajax({
+        url: '@Url.Action("CheckFavorite", "Favorites")',
+        type: 'GET',
+        data: { productId: productId },
+        success: function(response) {
+            updateFavoriteButton(productId, response.isFavorite);
+        }
+    });
+}
+
+function toggleFavorite(productId) {
+    var isFavorite = $('#favoriteIcon-' + productId).hasClass('bi-heart-fill');
+    
+    if (isFavorite) {
+        removeFromFavorites(productId);
+    } else {
+        addToFavorites(productId);
+    }
+}
+
+function addToFavorites(productId) {
+    var token = $('input[name="__RequestVerificationToken"]').val();
+    
+    $.ajax({
+        url: '@Url.Action("AddToFavorites", "Favorites")',
+        type: 'POST',
+        data: { 
+            productId: productId,
+            __RequestVerificationToken: token
+        },
+        success: function(response) {
+            if (response.success) {
+                updateFavoriteButton(productId, true);
+                showToast(response.message, 'success');
+            } else {
+                showToast(response.message, 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            showToast('Có lỗi xảy ra. Vui lòng thử lại!', 'error');
+        }
+    });
+}
+
+function removeFromFavorites(productId) {
+    var token = $('input[name="__RequestVerificationToken"]').val();
+    
+    $.ajax({
+        url: '@Url.Action("RemoveFromFavorites", "Favorites")',
+        type: 'POST',
+        data: { 
+            productId: productId,
+            __RequestVerificationToken: token
+        },
+        success: function(response) {
+            if (response.success) {
+                updateFavoriteButton(productId, false);
+                showToast(response.message, 'success');
+            } else {
+                showToast(response.message, 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            showToast('Có lỗi xảy ra. Vui lòng thử lại!', 'error');
+        }
+    });
+}
+
+function updateFavoriteButton(productId, isFavorite) {
+    var icon = $('#favoriteIcon-' + productId);
+    var btn = $('#favoriteBtn-' + productId);
+    
+    // Add animation
+    btn.addClass('animate');
+    setTimeout(function() {
+        btn.removeClass('animate');
+    }, 600);
+    
+    if (isFavorite) {
+        icon.removeClass('bi-heart').addClass('bi-heart-fill');
+        btn.removeClass('btn-outline-danger').addClass('btn-danger');
+        btn.attr('title', 'Xóa khỏi yêu thích');
+    } else {
+        icon.removeClass('bi-heart-fill').addClass('bi-heart');
+        btn.removeClass('btn-danger').addClass('btn-outline-danger');
+        btn.attr('title', 'Thêm vào yêu thích');
+    }
+}
+
+function showToast(message, type) {
+    // Simple toast notification - you can replace with your preferred notification system
+    var alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    var toast = $('<div class="alert ' + alertClass + ' alert-dismissible fade show position-fixed" style="top: 20px; right: 20px; z-index: 9999;">' +
+                  '<span>' + message + '</span>' +
+                  '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                  '</div>');
+    
+    $('body').append(toast);
+    
+    setTimeout(function() {
+        toast.alert('close');
+    }, 3000);
+}
+</script>
+
+<style>
+.favorite-btn {
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    border: 1px solid #dc3545;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(5px);
+}
+
+.favorite-btn:hover {
+    transform: scale(1.1);
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.favorite-btn i {
+    font-size: 1rem;
+}
+
+.favorite-btn.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.favorite-btn.btn-danger:hover {
+    background: #c82333;
+}
+</style>

@@ -19,12 +19,12 @@ namespace PerfumeStore
             // Đăng ký PerfumeStoreContext (Main)
             builder.Services.AddDbContext<PerfumeStore.Models.PerfumeStoreContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ??
-                "Server=MSI,1433;Database=PerfumeStore;User Id=sa;Password=@Password123;TrustServerCertificate=True;"));
+                "Server=DESKTOP-DPSMVOG;Database=PerfumeStore Ver.2 (1);User Id=sa;Password=@Password123;TrustServerCertificate=True;"));
 
             // Đăng ký PerfumeStoreContext (Admin)
             builder.Services.AddDbContext<PerfumeStore.Areas.Admin.Models.PerfumeStoreContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ??
-                "Server=MSI,1433;Database=PerfumeStore;User Id=sa;Password=@Password123;TrustServerCertificate=True;"));
+                "Server=DESKTOP-DPSMVOG;Database=PerfumeStore Ver.2 (1);User Id=sa;Password=@Password123;TrustServerCertificate=True;"));
 
             // Cấu hình EmailSettings (đọc từ appsettings.json)
             builder.Services.Configure<EmailSettings>(

@@ -42,7 +42,7 @@ namespace PerfumeStore.Models
             if (!optionsBuilder.IsConfigured)
             {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-                optionsBuilder.UseSqlServer("Server=MSI\\SERVER1;Database=PerfumeStore;User Id=SA;Password=@Password123;TrustServerCertificate=True;");
+                optionsBuilder.UseSqlServer("Server=DESKTOP-DPSMVOG;Database=PerfumeStore Ver.2 (1);User Id=SA;Password=@Password123;TrustServerCertificate=True;");
             }
         }
 
@@ -166,6 +166,23 @@ namespace PerfumeStore.Models
                     .WithMany(p => p.Customers)
                     .HasForeignKey(d => d.MembershipId)
                     .HasConstraintName("FK__Customers__Membe__7A672E12");
+
+                entity.HasMany(d => d.Products)
+                    .WithMany(p => p.Customers)
+                    .UsingEntity<Dictionary<string, object>>(
+                        "Favorite",
+                        l => l.HasOne<Product>().WithMany().HasForeignKey("ProductId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__Favorites__Produ__2739D489"),
+                        r => r.HasOne<Customer>().WithMany().HasForeignKey("CustomerId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__Favorites__Custo__2645B050"),
+                        j =>
+                        {
+                            j.HasKey("CustomerId", "ProductId").HasName("PK__Favorite__6FEEA8D625140F36");
+
+                            j.ToTable("Favorites");
+
+                            j.IndexerProperty<int>("CustomerId").HasColumnName("CustomerID");
+
+                            j.IndexerProperty<int>("ProductId").HasColumnName("ProductID");
+                        });
             });
 
             modelBuilder.Entity<DiscountProgram>(entity =>

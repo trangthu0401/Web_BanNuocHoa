@@ -26,8 +26,8 @@
                 <a class="nav-item" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">
                     <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
                 </a>
-                <a class="nav-item" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">
-                    <i class="fa-solid fa-chart-line"></i><span>📊 Thống kê doanh thu</span>
+                <a class="nav-item" asp-area="Admin" asp-controller="Dashboard" asp-action="StockManagement">
+                    <i class="fa-solid fa-warehouse"></i><span>Quản lý tồn kho</span>
                 </a>
                 <a class="nav-item" asp-area="Admin" asp-controller="Products" asp-action="Index"><i class="fa-solid fa-box"></i><span>Sản phẩm</span></a>
                 <a class="nav-item" asp-area="Admin" asp-controller="Orders" asp-action="Index"><i class="fa-solid fa-bag-shopping"></i><span>Đơn hàng</span></a>
@@ -54,10 +54,34 @@
                     </div>
                 </div>
                 <div class="topbar-right d-flex align-items-center gap-3">
-                    <button class="btn btn-light position-relative rounded-circle shadow-sm p-2">
-                        <i class="fa-solid fa-bell"></i>
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">3</span>
-                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-light position-relative rounded-circle shadow-sm p-2" type="button" 
+                                data-bs-toggle="dropdown" id="notificationBtn">
+                            <i class="fa-solid fa-bell"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge" 
+                                  id="notificationCount" style="display: none;">0</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end notification-dropdown" style="width: 350px; max-height: 400px; overflow-y: auto;">
+                            <div class="dropdown-header d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Thông báo tồn kho</h6>
+                                <button class="btn btn-sm btn-outline-primary" onclick="refreshNotifications()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <div id="notificationList">
+                                <div class="dropdown-item-text text-center text-muted py-3">
+                                    <i class="fas fa-spinner fa-spin"></i> Đang tải...
+                                </div>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-item text-center">
+                                <a href="@Url.Action("StockManagement", "Dashboard", new { Area = "Admin" })" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-warehouse me-1"></i>Xem tất cả
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                     <div class="dropdown">
                         <button class="btn btn-link text-decoration-none d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
                             <img src="https://i.pravatar.cc/40" class="rounded-circle" alt="avatar" width="36" height="36" />
@@ -83,6 +107,99 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- Notification Script -->
+    <script>
+        // Load notifications on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadNotifications();
+            
+            // Auto refresh every 5 minutes
+            setInterval(loadNotifications, 300000);
+        });
+
+        function loadNotifications() {
+            fetch('@Url.Action("GetLowStockNotifications", "Dashboard", new { Area = "Admin" })')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateNotificationUI(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading notifications:', error);
+                });
+        }
+
+        function updateNotificationUI(data) {
+            const countBadge = document.getElementById('notificationCount');
+            const notificationList = document.getElementById('notificationList');
+            
+            // Update count badge
+            if (data.count > 0) {
+                countBadge.textContent = data.count;
+                countBadge.style.display = 'inline';
+            } else {
+                countBadge.style.display = 'none';
+            }
+            
+            // Update notification list
+            if (data.notifications && data.notifications.length > 0) {
+                let html = '';
+                data.notifications.slice(0, 5).forEach(notification => {
+                    const priorityClass = notification.priority === 'High' ? 'danger' : 
+                                        notification.priority === 'Medium' ? 'warning' : 'info';
+                    const icon = notification.stock === 0 ? 'fas fa-times-circle' : 'fas fa-exclamation-triangle';
+                    
+                    html += `
+                        <div class="dropdown-item py-2">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="${icon} text-${priorityClass}"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-2">
+                                    <div class="fw-semibold small">${notification.productName}</div>
+                                    <small class="text-muted">${notification.brandName}</small>
+                                    <div class="small text-${priorityClass}">${notification.message}</div>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <span class="badge bg-${priorityClass} rounded-pill">${notification.stock}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                if (data.notifications.length > 5) {
+                    html += `
+                        <div class="dropdown-item-text text-center text-muted py-2">
+                            <small>Và ${data.notifications.length - 5} thông báo khác...</small>
+                        </div>
+                    `;
+                }
+                
+                notificationList.innerHTML = html;
+            } else {
+                notificationList.innerHTML = `
+                    <div class="dropdown-item-text text-center text-muted py-3">
+                        <i class="fas fa-check-circle text-success fa-2x mb-2 d-block"></i>
+                        <small>Tất cả sản phẩm đều có đủ hàng</small>
+                    </div>
+                `;
+            }
+        }
+
+        function refreshNotifications() {
+            const notificationList = document.getElementById('notificationList');
+            notificationList.innerHTML = `
+                <div class="dropdown-item-text text-center text-muted py-3">
+                    <i class="fas fa-spinner fa-spin"></i> Đang tải...
+                </div>
+            `;
+            loadNotifications();
+        }
+    </script>
+    
     @RenderSection("Scripts", required: false)
 </body>
 </html>

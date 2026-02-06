@@ -1,5 +1,6 @@
 @model PerfumeStore.Areas.Admin.Models.PagedResult<PerfumeStore.Models.Category>
 @{
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
     ViewData["Title"] = "Quản lý danh mục";
     var totalCategories = ViewBag.TotalCategories is int tc ? tc : Model.TotalItems;
     var totalProducts = ViewBag.TotalCategoryProducts is int tp ? tp : Model.Items.Sum(c => c.Products.Count);

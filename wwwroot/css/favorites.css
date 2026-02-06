@@ -1,0 +1,432 @@
+/* Favorites Page Styles */
+.favorites-container {
+    min-height: 60vh;
+}
+
+.favorites-header {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 0 0 20px 20px;
+}
+
+.favorites-header h2 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.favorites-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: #f8f9fa;
+    border-radius: 15px;
+    margin: 2rem 0;
+}
+
+.favorites-empty i {
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.favorites-empty h4 {
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.favorites-empty p {
+    color: #adb5bd;
+    margin-bottom: 2rem;
+}
+
+/* Product Card Enhancements for Favorites */
+.favorite-product-card {
+    border: none;
+    border-radius: 15px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.favorite-product-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.favorite-product-card .card-img-top {
+    transition: transform 0.3s ease;
+}
+
+.favorite-product-card:hover .card-img-top {
+    transform: scale(1.05);
+}
+
+/* Enhanced product card styles for all pages */
+.product-card {
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.product-card .position-relative::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, transparent 0%, rgba(0,0,0,0.1) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.product-card:hover .position-relative::after {
+    opacity: 1;
+}
+
+.product-card .card-img-top {
+    transition: transform 0.3s ease;
+    height: 200px;
+    object-fit: cover;
+}
+
+.product-card:hover .card-img-top {
+    transform: scale(1.03);
+}
+
+.favorite-remove-btn {
+    background: rgba(220, 53, 69, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.favorite-remove-btn:hover {
+    background: rgba(220, 53, 69, 1);
+    transform: scale(1.1);
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+}
+
+.favorite-remove-btn i {
+    color: white;
+    font-size: 0.9rem;
+}
+
+/* Favorite Button Styles */
+.favorite-btn {
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    border: 1.5px solid #dc3545;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.favorite-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+}
+
+.favorite-btn:hover::before {
+    transform: translateX(100%);
+}
+
+.favorite-btn:hover {
+    transform: scale(1.15);
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+    border-color: #dc3545;
+}
+
+.favorite-btn i {
+    font-size: 0.9rem;
+    color: #dc3545;
+    transition: all 0.3s ease;
+    z-index: 1;
+    position: relative;
+}
+
+.favorite-btn.btn-danger {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+    border-color: #dc3545;
+    box-shadow: 0 3px 12px rgba(220, 53, 69, 0.3);
+}
+
+.favorite-btn.btn-danger i {
+    color: white;
+}
+
+.favorite-btn.btn-danger:hover {
+    background: linear-gradient(135deg, #c82333, #dc3545);
+    border-color: #c82333;
+    transform: scale(1.15);
+    box-shadow: 0 5px 20px rgba(220, 53, 69, 0.5);
+}
+
+/* Pulse animation for active favorite */
+.favorite-btn.btn-danger {
+    animation: favoritePulse 2s infinite;
+}
+
+@keyframes favoritePulse {
+    0% { box-shadow: 0 3px 12px rgba(220, 53, 69, 0.3); }
+    50% { box-shadow: 0 3px 12px rgba(220, 53, 69, 0.5), 0 0 0 3px rgba(220, 53, 69, 0.1); }
+    100% { box-shadow: 0 3px 12px rgba(220, 53, 69, 0.3); }
+}
+
+/* Click animation */
+.animate-click {
+    animation: clickBounce 0.3s ease;
+}
+
+@keyframes clickBounce {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+}
+
+/* Heart animation */
+.animate-heart {
+    animation: heartBeat 0.6s ease;
+}
+
+@keyframes heartBeat {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.3); }
+    50% { transform: scale(1.1); }
+    75% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+}
+
+/* Improved toast notifications */
+.toast-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    border: none;
+    backdrop-filter: blur(10px);
+}
+
+.toast-notification.success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.toast-notification.error {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+    color: white;
+}
+
+/* Toast animations */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.fade-out {
+    animation: fadeOut 0.3s ease forwards;
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+/* Animation for adding/removing favorites */
+@keyframes heartBeat {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.2); }
+    50% { transform: scale(1); }
+    75% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.favorite-btn.animate {
+    animation: heartBeat 0.6s ease-in-out;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+.custom-toast {
+    min-width: 300px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    border: none;
+}
+
+.custom-toast.success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.custom-toast.error {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+    color: white;
+}
+
+/* Product Detail Page Actions */
+.product-actions .btn {
+    transition: all 0.3s ease;
+    border-width: 1.5px;
+    position: relative;
+    overflow: hidden;
+}
+
+.product-actions .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.product-actions .btn:hover::before {
+    left: 100%;
+}
+
+.product-actions .btn-outline-primary {
+    border-color: #0d6efd;
+    color: #0d6efd;
+    background: rgba(13, 110, 253, 0.05);
+}
+
+.product-actions .btn-outline-primary:hover {
+    background: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+.product-actions .btn-outline-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.05);
+}
+
+.product-actions .btn-outline-danger:hover {
+    background: #dc3545;
+    border-color: #dc3545;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.product-actions .btn-danger {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+    border: none;
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+}
+
+.product-actions .btn-danger:hover {
+    background: linear-gradient(135deg, #c82333, #dc3545);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .favorite-btn {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .favorite-btn i {
+        font-size: 0.8rem;
+    }
+    
+    .favorites-header {
+        padding: 1.5rem 0;
+    }
+    
+    .favorites-empty {
+        padding: 3rem 1rem;
+    }
+    
+    .product-actions .d-flex {
+        flex-direction: row;
+        gap: 0.75rem !important;
+    }
+    
+    .product-actions .btn-outline-danger {
+        width: 45px !important;
+        height: 40px !important;
+        flex-shrink: 0;
+    }
+    
+    .product-actions .btn {
+        font-size: 0.9rem;
+    }
+    
+    .product-actions .btn-danger {
+        font-size: 1rem !important;
+    }
+}
+
+/* Loading state */
+.favorite-btn.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.favorite-btn.loading i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
