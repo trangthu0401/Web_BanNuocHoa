@@ -1,0 +1,373 @@
+@model PerfumeStore.Areas.Admin.Models.ViewModels.ExtendedDashboardViewModel
+@{
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Quản lý tồn kho";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="mb-0"><i class="fas fa-warehouse me-2 text-primary"></i>Quản lý tồn kho</h4>
+    <div class="d-flex gap-2">
+        <a href="@Url.Action("ExportStockReport")" class="btn btn-outline-success btn-sm">
+            <i class="fas fa-file-excel me-1"></i>Xuất báo cáo
+        </a>
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>Quay lại Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="dashboard-icon bg-success bg-gradient">
+                            <i class="fas fa-coins text-white"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="dashboard-label">Tổng giá trị tồn kho</div>
+                        <div class="dashboard-value text-success">@Model.TotalStockValue.ToString("N0") VNĐ</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="dashboard-icon bg-primary bg-gradient">
+                            <i class="fas fa-box text-white"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="dashboard-label">Tổng sản phẩm</div>
+                        <div class="dashboard-value text-primary">@Model.TotalProducts</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="dashboard-icon bg-danger bg-gradient">
+                            <i class="fas fa-exclamation-triangle text-white"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="dashboard-label">Sản phẩm hết hàng</div>
+                        <div class="dashboard-value text-danger">@Model.OutOfStockProducts</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="dashboard-icon bg-warning bg-gradient">
+                            <i class="fas fa-exclamation-circle text-white"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="dashboard-label">Sản phẩm sắp hết</div>
+                        <div class="dashboard-value text-warning">@Model.LowStockProducts</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stock Status Filter -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0">
+        <h6 class="card-title mb-0">
+            <i class="fas fa-filter me-2 text-info"></i>Lọc theo trạng thái tồn kho
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="btn-group" role="group">
+            <input type="radio" class="btn-check" name="stockFilter" id="all" value="all" checked>
+            <label class="btn btn-outline-primary" for="all">
+                <i class="fas fa-list me-1"></i>Tất cả (@Model.ProductStocks.Count)
+            </label>
+
+            <input type="radio" class="btn-check" name="stockFilter" id="outOfStock" value="outOfStock">
+            <label class="btn btn-outline-danger" for="outOfStock">
+                <i class="fas fa-times-circle me-1"></i>Hết hàng (@Model.OutOfStockProducts)
+            </label>
+
+            <input type="radio" class="btn-check" name="stockFilter" id="lowStock" value="lowStock">
+            <label class="btn btn-outline-warning" for="lowStock">
+                <i class="fas fa-exclamation-triangle me-1"></i>Sắp hết (≤10)
+            </label>
+
+            <input type="radio" class="btn-check" name="stockFilter" id="inStock" value="inStock">
+            <label class="btn btn-outline-success" for="inStock">
+                <i class="fas fa-check-circle me-1"></i>Còn hàng (>10)
+            </label>
+        </div>
+        
+        <div class="mt-3">
+            <div class="input-group" style="max-width: 400px;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" id="searchInput" placeholder="Tìm kiếm sản phẩm hoặc thương hiệu...">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stock Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">
+            <i class="fas fa-table me-2 text-primary"></i>Chi tiết tồn kho sản phẩm
+        </h6>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary" onclick="refreshTable()">
+                <i class="fas fa-sync-alt me-1"></i>Làm mới
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="stockTable">
+                <thead class="table-light">
+                    <tr>
+                        <th class="border-0 ps-3">Mã SP</th>
+                        <th class="border-0">Tên sản phẩm</th>
+                        <th class="border-0">Thương hiệu</th>
+                        <th class="border-0 text-center">Tồn kho</th>
+                        <th class="border-0 text-center">Trạng thái</th>
+                        <th class="border-0 text-end pe-3">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in Model.ProductStocks)
+                    {
+                        <tr data-stock="@product.Stock" data-status="@product.StockStatus.ToLower().Replace(" ", "")" 
+                            data-search="@(product.ProductName.ToLower() + " " + product.BrandName.ToLower())">
+                            <td class="ps-3">
+                                <span class="badge bg-light text-dark">#@product.ProductId</span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">@product.ProductName</div>
+                            </td>
+                            <td>
+                                <span class="text-muted">@product.BrandName</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-@(product.Stock == 0 ? "danger" : product.Stock <= 5 ? "warning" : product.Stock <= 10 ? "info" : "success") rounded-pill fs-6">
+                                    @product.Stock
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-@product.StatusColor">
+                                    @if (product.StockStatus == "Hết hàng")
+                                    {
+                                        <i class="fas fa-times-circle me-1"></i>
+                                    }
+                                    else if (product.StockStatus == "Sắp hết")
+                                    {
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                    }
+                                    else if (product.StockStatus == "Ít hàng")
+                                    {
+                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="fas fa-check-circle me-1"></i>
+                                    }
+                                    @product.StockStatus
+                                </span>
+                            </td>
+                            <td class="text-end pe-3">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="@Url.Action("Edit", "Products", new { id = product.ProductId })" 
+                                       class="btn btn-outline-primary" title="Chỉnh sửa">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="@Url.Action("Details", "Products", new { id = product.ProductId })" 
+                                       class="btn btn-outline-info" title="Xem chi tiết">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const stockFilters = document.querySelectorAll('input[name="stockFilter"]');
+    const searchInput = document.getElementById('searchInput');
+    const tableRows = document.querySelectorAll('#stockTable tbody tr');
+
+    // Filter functionality
+    function filterTable() {
+        const selectedFilter = document.querySelector('input[name="stockFilter"]:checked').value;
+        const searchTerm = searchInput.value.toLowerCase();
+
+        tableRows.forEach(row => {
+            const stock = parseInt(row.dataset.stock);
+            const status = row.dataset.status;
+            const searchData = row.dataset.search;
+
+            let showByFilter = true;
+            let showBySearch = true;
+
+            // Filter by stock status
+            switch(selectedFilter) {
+                case 'outOfStock':
+                    showByFilter = stock === 0;
+                    break;
+                case 'lowStock':
+                    showByFilter = stock > 0 && stock <= 10;
+                    break;
+                case 'inStock':
+                    showByFilter = stock > 10;
+                    break;
+                default:
+                    showByFilter = true;
+            }
+
+            // Filter by search term
+            if (searchTerm) {
+                showBySearch = searchData.includes(searchTerm);
+            }
+
+            // Show/hide row
+            row.style.display = (showByFilter && showBySearch) ? '' : 'none';
+        });
+
+        // Update visible count
+        updateVisibleCount();
+    }
+
+    function updateVisibleCount() {
+        const visibleRows = Array.from(tableRows).filter(row => row.style.display !== 'none');
+        const selectedFilter = document.querySelector('input[name="stockFilter"]:checked').value;
+        
+        // Update filter button text with count
+        const filterLabels = {
+            'all': `Tất cả (${visibleRows.length})`,
+            'outOfStock': `Hết hàng (${visibleRows.filter(row => parseInt(row.dataset.stock) === 0).length})`,
+            'lowStock': `Sắp hết (${visibleRows.filter(row => {
+                const stock = parseInt(row.dataset.stock);
+                return stock > 0 && stock <= 10;
+            }).length})`,
+            'inStock': `Còn hàng (${visibleRows.filter(row => parseInt(row.dataset.stock) > 10).length})`
+        };
+
+        // Update current filter label
+        const currentLabel = document.querySelector(`label[for="${selectedFilter}"]`);
+        if (currentLabel && filterLabels[selectedFilter]) {
+            const icon = currentLabel.querySelector('i').outerHTML;
+            currentLabel.innerHTML = icon + ' ' + filterLabels[selectedFilter];
+        }
+    }
+
+    // Event listeners
+    stockFilters.forEach(filter => {
+        filter.addEventListener('change', filterTable);
+    });
+
+    searchInput.addEventListener('input', filterTable);
+
+    // Initial count update
+    updateVisibleCount();
+});
+
+function refreshTable() {
+    location.reload();
+}
+</script>
+
+<style>
+.dashboard-card {
+    transition: transform 0.2s ease-in-out;
+    border-radius: 12px;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+}
+
+.dashboard-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dashboard-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.dashboard-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.card {
+    border-radius: 12px;
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-check:checked + .btn {
+    transform: scale(1.05);
+}
+
+@@media (max-width: 768px) {
+    .dashboard-value {
+        font-size: 1.25rem;
+    }
+    
+    .dashboard-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    .btn-group .btn {
+        border-radius: 0.375rem !important;
+        margin-bottom: 0.25rem;
+    }
+}
+</style>

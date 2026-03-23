@@ -128,15 +128,35 @@ namespace PerfumeStore.Services
                 await _context.SaveChangesAsync();
                 Console.WriteLine($"OrderService: Order created with ID: {order.OrderId}");
 
-                // Tạo order details
+                // Tạo order details và giảm Stock
                 foreach (var cartItem in cartItems)
                 {
-                    // Tìm product theo tên (hoặc có thể cải thiện bằng cách lưu ProductId trong CartItem)
-                    var product = await _context.Products
-                        .FirstOrDefaultAsync(p => p.ProductName == cartItem.ProductName);
+                    Product? product = null;
+
+                    // Ưu tiên tìm theo ProductId nếu có
+                    if (cartItem.ProductId > 0)
+                    {
+                        product = await _context.Products.FindAsync(cartItem.ProductId);
+                    }
+
+                    // Nếu không tìm thấy, tìm theo tên
+                    if (product == null)
+                    {
+                        product = await _context.Products
+                            .FirstOrDefaultAsync(p => p.ProductName == cartItem.ProductName);
+                    }
 
                     if (product != null)
                     {
+                        // Kiểm tra Stock trước khi tạo đơn
+                        if (product.Stock < cartItem.Quantity)
+                        {
+                            throw new InvalidOperationException($"Sản phẩm '{product.ProductName}' chỉ còn {product.Stock} sản phẩm trong kho. Vui lòng điều chỉnh số lượng trong giỏ hàng.");
+                        }
+
+                        // Giảm Stock
+                        product.Stock -= cartItem.Quantity;
+
                         var orderDetail = new OrderDetail
                         {
                             OrderId = order.OrderId,

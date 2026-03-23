@@ -8,6 +8,12 @@ using System.Text.Json;
 
 namespace PerfumeStore.Controllers
 {
+    
+    ///     Xử lý luồng thanh toán chuyển khoản (PayOS):
+    ///     - Tạo payment link dựa trên đơn đã lưu từ Checkout.
+    ///     - Nhận trang thành công/hủy từ PayOS.
+    ///     - Đồng bộ trạng thái đơn hàng & coupon sau khi thanh toán.
+    
     public class PaymentController : Controller
     {
         private readonly PayOS _payOS;
@@ -31,6 +37,10 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet("/cancel-payment")]
+        
+        ///     Callback khi người dùng hoặc PayOS báo hủy giao dịch.
+        ///     Cập nhật trạng thái đơn sang “Đã hủy” và hướng dẫn khách thử lại.
+        
         public async Task<IActionResult> CancelPayment()
         {
             try
@@ -66,6 +76,10 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet("/payment-success")]
+        
+        ///     Callback thành công từ PayOS.
+        ///     Xác thực orderId trong session, cập nhật trạng thái “Đã thanh toán” và hiển thị lại thông tin đơn hàng.
+        
         public async Task<IActionResult> PaymentSuccess()
         {
             try
@@ -274,6 +288,10 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet("/create-payment-progress")]
+        
+        ///     Lấy thông tin đơn chờ thanh toán (được lưu trong session từ CartController),
+        ///     tạo payment link PayOS và redirect khách đến trang thanh toán của cổng.
+        
         public async Task<IActionResult> CreatePaymentProgress()
         {
             try

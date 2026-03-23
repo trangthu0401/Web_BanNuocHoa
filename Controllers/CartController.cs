@@ -8,6 +8,12 @@ using System.Text.Json;
 
 namespace PerfumeStore.Controllers
 {
+    
+    ///     Quản lý toàn bộ dòng chảy giỏ hàng & đặt hàng của khách hàng:
+    ///     - Cập nhật session giỏ hàng (thêm/xóa/sửa số lượng, yêu thích…)
+    ///     - Tính toán phí (voucher, VAT, vận chuyển) phục vụ trang Checkout
+    ///     - Đẩy đơn hàng vào database và chuyển hướng sang luồng thanh toán (COD / chuyển khoản PayOS)
+    
     public class CartController : Controller
     {
         ILogger<CartController> _logger;
@@ -25,6 +31,9 @@ namespace PerfumeStore.Controllers
             _warrantyService = warrantyService;
         }
 
+        
+        ///     Hiển thị danh sách sản phẩm trong giỏ cùng các nút điều hướng tới thanh toán.
+        
         public IActionResult Index()
         {
             var cart = GetCartFromSession();
@@ -33,6 +42,9 @@ namespace PerfumeStore.Controllers
 
         private const string CartSessionKey = "CART_SESSION";
 
+        
+        ///     Lấy giỏ hàng hiện tại từ session, trả về danh sách rỗng nếu session chưa tồn tại hoặc deserialize lỗi.
+        
         private List<CartItem> GetCartFromSession()
         {
             var json = HttpContext.Session.GetString(CartSessionKey);
@@ -41,12 +53,18 @@ namespace PerfumeStore.Controllers
             catch { return new List<CartItem>(); }
         }
 
+        
+        ///     Lưu lại trạng thái giỏ hàng mới vào session để đồng bộ giữa các request.
+        
         private void SaveCartToSession(List<CartItem> items)
         {
             HttpContext.Session.SetString(CartSessionKey, JsonSerializer.Serialize(items));
         }
 
         [HttpGet]
+        
+        ///     API AJAX để lấy tổng số lượng item đang có trong giỏ (hiển thị icon cart).
+        
         public IActionResult GetCartCount()
         {
             var cart = GetCartFromSession();
@@ -58,6 +76,9 @@ namespace PerfumeStore.Controllers
             });
         }
 
+        
+        ///     Đọc voucher đã lưu trong session (khi khách quay vòng quay, nhập mã hoặc click từ URL).
+        
         private VoucherModel? GetAppliedVoucher()
         {
             var voucherJson = HttpContext.Session.GetString("AppliedVoucher");
@@ -82,6 +103,9 @@ namespace PerfumeStore.Controllers
             }
         }
 
+        
+        ///     Tính số tiền giảm dựa trên loại voucher (percent/amount/freeship) & giá trị áp dụng.
+        
         private decimal CalculateDiscount(decimal subtotal, VoucherModel? voucher)
         {
             if (voucher == null)
@@ -108,6 +132,9 @@ namespace PerfumeStore.Controllers
             return discount;
         }
 
+        
+        ///     Lấy phần trăm VAT từ bảng Fee trong database rồi nhân với tạm tính.
+        
         private decimal CalculateVAT(decimal subtotal)
         {
             // Lấy VAT từ database
@@ -122,6 +149,9 @@ namespace PerfumeStore.Controllers
             return 0m;
         }
 
+        
+        ///     Tính phí vận chuyển dựa trên fee cấu hình + ngưỡng miễn phí + voucher freeship (nếu có).
+        
         private decimal CalculateShippingFee(decimal subtotal, VoucherModel? voucher)
         {
             // Nếu có voucher miễn phí ship và đơn hàng >= 200,000đ
@@ -142,6 +172,9 @@ namespace PerfumeStore.Controllers
             return subtotal >= 5000000 ? 0m : 30000m;
         }
 
+        
+        ///     Cung cấp danh sách voucher có thể áp dụng: ưu tiên lấy coupon thật trong DB, fallback sang data mẫu.
+        
         private List<VoucherModel> GetAvailableVouchers()
         {
             // Lấy coupon từ DB để cho phép áp dụng qua URL (?voucherCode=...)
@@ -181,6 +214,9 @@ namespace PerfumeStore.Controllers
         }
 
 
+        
+        ///     Sinh mô tả ngắn cho sản phẩm dựa trên tên (dùng cho các sản phẩm test khi chưa có dữ liệu thật).
+        
         private static string GenerateDescriptionFromName(string name)
         {
             // Ưu tiên mô tả tùy biến theo từng sản phẩm cụ thể
@@ -208,36 +244,100 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult AddToCart(string imageUrl, string name, decimal price)
+        
+        ///     Thêm sản phẩm vào giỏ. Hỗ trợ AJAX (trả JSON) và điều hướng thông thường.
+        ///     Kiểm tra Stock trước khi thêm và giới hạn số lượng tối đa 10 để tránh spam đơn hàng.
+        
+        public async Task<IActionResult> AddToCart(string imageUrl, string name, decimal price, int? productId = null)
         {
             var cart = GetCartFromSession();
 
-            // Tìm sản phẩm trong giỏ hàng theo ImageUrl
-            var found = cart.FirstOrDefault(i => i.ImageUrl.Equals(imageUrl, StringComparison.OrdinalIgnoreCase));
-            if (found == null)
+            // Nếu có ProductId, kiểm tra Stock từ database
+            if (productId.HasValue && productId.Value > 0)
             {
-                cart.Add(new CartItem { ImageUrl = imageUrl, ProductName = name, Quantity = 1, UnitPrice = price });
+                var product = await _context.Products.FindAsync(productId.Value);
+                if (product == null)
+                {
+                    var errorMsg = "Không tìm thấy sản phẩm trong hệ thống.";
+                    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
+                        return Json(new { success = false, message = errorMsg, cartCount = cart.Sum(item => item.Quantity) });
+                    }
+                    TempData["Error"] = errorMsg;
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Tìm sản phẩm trong giỏ hàng theo ProductId
+                var found = cart.FirstOrDefault(i => i.ProductId == productId.Value);
+                var currentQuantityInCart = found?.Quantity ?? 0;
+                var requestedQuantity = currentQuantityInCart + 1; // Số lượng sau khi thêm
+
+                // Kiểm tra Stock
+                if (requestedQuantity > product.Stock)
+                {
+                    var errorMsg = $"Sản phẩm chỉ còn {product.Stock} sản phẩm trong kho. Bạn đã có {currentQuantityInCart} sản phẩm trong giỏ hàng.";
+                    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
+                        return Json(new { success = false, message = errorMsg, cartCount = cart.Sum(item => item.Quantity) });
+                    }
+                    TempData["Error"] = errorMsg;
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Kiểm tra số lượng tối đa là 10
+                if (requestedQuantity > 10)
+                {
+                    var errorMsg = "Số lượng tối đa là 10 sản phẩm.";
+                    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
+                        return Json(new { success = false, message = errorMsg, cartCount = cart.Sum(item => item.Quantity) });
+                    }
+                    TempData["Error"] = errorMsg;
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Thêm hoặc cập nhật sản phẩm trong giỏ
+                if (found == null)
+                {
+                    cart.Add(new CartItem 
+                    { 
+                        ProductId = productId.Value,
+                        ImageUrl = imageUrl, 
+                        ProductName = name, 
+                        Quantity = 1, 
+                        UnitPrice = price 
+                    });
+                }
+                else
+                {
+                    found.Quantity += 1;
+                }
             }
             else
             {
-                // Kiểm tra số lượng tối đa là 10
-                if (found.Quantity >= 10)
+                // Fallback: Tìm theo ImageUrl nếu không có ProductId (cho tương thích ngược)
+                var found = cart.FirstOrDefault(i => i.ImageUrl.Equals(imageUrl, StringComparison.OrdinalIgnoreCase));
+                if (found == null)
                 {
-                    // Return JSON response for AJAX requests
-                    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-                    {
-                        return Json(new
-                        {
-                            success = false,
-                            message = "Số lượng tối đa là 10 sản phẩm.",
-                            cartCount = cart.Sum(item => item.Quantity)
-                        });
-                    }
-                    TempData["Error"] = "Số lượng tối đa là 10 sản phẩm.";
-                    return RedirectToAction(nameof(Index));
+                    cart.Add(new CartItem { ImageUrl = imageUrl, ProductName = name, Quantity = 1, UnitPrice = price });
                 }
-                found.Quantity += 1;
+                else
+                {
+                    // Kiểm tra số lượng tối đa là 10
+                    if (found.Quantity >= 10)
+                    {
+                        var errorMsg = "Số lượng tối đa là 10 sản phẩm.";
+                        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                        {
+                            return Json(new { success = false, message = errorMsg, cartCount = cart.Sum(item => item.Quantity) });
+                        }
+                        TempData["Error"] = errorMsg;
+                        return RedirectToAction(nameof(Index));
+                    }
+                    found.Quantity += 1;
+                }
             }
+
             SaveCartToSession(cart);
 
             // Calculate total quantity across all items
@@ -259,6 +359,9 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        
+        ///     Xóa sản phẩm khỏi giỏ bằng submit form truyền thống.
+        
         public IActionResult RemoveFromCart(string imageUrl)
         {
             var cart = GetCartFromSession();
@@ -269,6 +372,9 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        
+        ///     Đánh dấu sản phẩm yêu thích ngay trong giỏ – dữ liệu lưu kèm CartItem trong session.
+        
         public IActionResult ToggleFavorite(string imageUrl)
         {
             var cart = GetCartFromSession();
@@ -283,6 +389,9 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        
+        ///     Endpoint AJAX xóa sản phẩm, trả về JSON để UI tự cập nhật mà không reload.
+        
         public IActionResult RemoveFromCartAjax(string imageUrl)
         {
             var cart = GetCartFromSession();
@@ -296,21 +405,55 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult UpdateCartQuantity(string imageUrl, int quantity)
+        
+        ///     Cập nhật số lượng từng item (AJAX), đồng thời đảm bảo giới hạn 1-10 và kiểm tra Stock.
+        
+        public async Task<IActionResult> UpdateCartQuantity(string imageUrl, int quantity)
         {
             var cart = GetCartFromSession();
             var item = cart.FirstOrDefault(i => i.ImageUrl.Equals(imageUrl, StringComparison.OrdinalIgnoreCase));
             if (item != null)
             {
                 // Giới hạn số lượng từ 1 đến 10
-                item.Quantity = Math.Max(1, Math.Min(10, quantity));
+                var requestedQuantity = Math.Max(1, Math.Min(10, quantity));
+
+                // Nếu có ProductId, kiểm tra Stock từ database
+                if (item.ProductId > 0)
+                {
+                    var product = await _context.Products.FindAsync(item.ProductId);
+                    if (product != null)
+                    {
+                        // Kiểm tra Stock
+                        if (requestedQuantity > product.Stock)
+                        {
+                            // Điều chỉnh về số lượng tối đa có trong kho
+                            requestedQuantity = product.Stock;
+                            if (requestedQuantity < 1)
+                            {
+                                // Nếu hết hàng, xóa khỏi giỏ
+                                cart.Remove(item);
+                                SaveCartToSession(cart);
+                                return Json(new
+                                {
+                                    ok = false,
+                                    message = "Sản phẩm đã hết hàng và đã được xóa khỏi giỏ hàng.",
+                                    removed = true
+                                });
+                            }
+                        }
+                    }
+                }
+
+                item.Quantity = requestedQuantity;
                 SaveCartToSession(cart);
                 return Json(new
                 {
                     ok = true,
                     quantity = item.Quantity,
                     maxReached = item.Quantity >= 10,
-                    message = item.Quantity >= 10 ? "Số lượng tối đa là 10 sản phẩm." : null
+                    stockLimited = item.ProductId > 0 && item.Quantity < quantity,
+                    message = item.Quantity >= 10 ? "Số lượng tối đa là 10 sản phẩm." : 
+                              (item.ProductId > 0 && item.Quantity < quantity ? $"Số lượng đã được điều chỉnh về {item.Quantity} do giới hạn tồn kho." : null)
                 });
             }
             return Json(new { ok = false, message = "Không tìm thấy sản phẩm trong giỏ hàng" });
@@ -318,6 +461,9 @@ namespace PerfumeStore.Controllers
 
         // FIX: Thêm method để test thêm sản phẩm vào cart
         [HttpGet]
+        
+        ///     Endpoint hỗ trợ QA: clear giỏ và nạp bộ sản phẩm mẫu để thử luồng checkout nhanh.
+        
         public IActionResult AddTestProducts()
         {
             var cart = GetCartFromSession();
@@ -344,6 +490,9 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        
+        ///     Fake luồng thanh toán đơn giản dùng cho demo (không ghi đơn hàng vào DB).
+        
         public IActionResult ProcessPayment()
         {
             var cart = GetCartFromSession();
@@ -377,6 +526,10 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        
+        ///     Thanh toán nhanh trực tiếp từ trang giỏ: tính tổng dựa trên voucher/VAT/ship rồi điều hướng tới trang thành công.
+        ///     Không yêu cầu nhập thông tin khách hàng – phù hợp demo UX.
+        
         public IActionResult QuickPayment()
         {
             var cart = GetCartFromSession();
@@ -426,6 +579,10 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet]
+        
+        ///     Chuẩn bị dữ liệu hiển thị trang Checkout: đảm bảo user đăng nhập, xử lý voucher từ URL/spin wheel,
+        ///     tính toán toàn bộ fee và trả về <see cref="CheckoutViewModel"/>.
+        
         public IActionResult Checkout()
         {
             // Kiểm tra đăng nhập
@@ -487,6 +644,12 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        
+        ///     Nhận thông tin Checkout từ form, tạo Customer/Address/Order/OrderDetails trong database
+        ///     và tách luồng thanh toán:
+        ///     - COD: hoàn tất đơn ngay, chuyển đến trang PaymentSuccess nội bộ.
+        ///     - BANK_TRANSFER: lưu thông tin đơn vào session, chuyển sang PaymentController để gọi PayOS.
+        
         public async Task<IActionResult> ProcessCheckout(CheckoutViewModel model)
         {
             // Kiểm tra đăng nhập - cho phép checkout mà không cần đăng nhập
@@ -607,21 +770,46 @@ namespace PerfumeStore.Controllers
                 _context.Orders.Add(order);
                 await _context.SaveChangesAsync();
 
-                // Tạo order details
+                // Tạo order details và giảm Stock
                 foreach (var cartItem in cart)
                 {
-                    // Tìm product theo tên
-                    var product = await _context.Products
-                        .FirstOrDefaultAsync(p => p.ProductName == cartItem.ProductName);
-
+                    Product? product = null;
                     int productId;
+
+                    // Ưu tiên tìm theo ProductId nếu có
+                    if (cartItem.ProductId > 0)
+                    {
+                        product = await _context.Products.FindAsync(cartItem.ProductId);
+                    }
+
+                    // Nếu không tìm thấy, tìm theo tên
+                    if (product == null)
+                    {
+                        product = await _context.Products
+                            .FirstOrDefaultAsync(p => p.ProductName == cartItem.ProductName);
+                    }
+
                     if (product != null)
                     {
                         productId = product.ProductId;
+
+                        // Kiểm tra Stock trước khi tạo đơn
+                        if (product.Stock < cartItem.Quantity)
+                        {
+                            TempData["Error"] = $"Sản phẩm '{product.ProductName}' chỉ còn {product.Stock} sản phẩm trong kho. Vui lòng điều chỉnh số lượng trong giỏ hàng.";
+                            model.CartItems = cart;
+                            model.Subtotal = cart.Sum(item => item.LineTotal);
+                            model.ShippingFee = 0m;
+                            model.Total = cart.Sum(item => item.LineTotal);
+                            return View("Checkout", model);
+                        }
+
+                        // Giảm Stock
+                        product.Stock -= cartItem.Quantity;
                     }
                     else
                     {
-                        // Tạo sản phẩm tạm thời
+                        // Tạo sản phẩm tạm thời (fallback cho sản phẩm không có trong DB)
                         var tempProduct = new Product
                         {
                             ProductName = cartItem.ProductName,
@@ -647,6 +835,8 @@ namespace PerfumeStore.Controllers
                         _context.Products.Add(tempProduct);
                         await _context.SaveChangesAsync();
                         productId = tempProduct.ProductId;
+                        product = tempProduct;
+                        // Không giảm Stock cho sản phẩm tạm thời vì đã set Stock = 999
                     }
 
                     var orderDetail = new OrderDetail
@@ -731,6 +921,10 @@ namespace PerfumeStore.Controllers
             }
         }
 
+        
+        ///     Đọc thông tin đơn hàng cuối cùng từ session hoặc database (dành cho luồng COD/quick payment),
+        ///     hiển thị lại để khách xem chi tiết.
+        
         public async Task<IActionResult> PaymentSuccess()
         {
             var orderJson = HttpContext.Session.GetString("LAST_ORDER");
@@ -840,6 +1034,9 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpPost]
+        
+        ///     Xóa voucher đang áp dụng khỏi session – được gọi từ trang Checkout để khách chọn mã mới.
+        
         public IActionResult RemoveVoucher()
         {
             try
@@ -854,6 +1051,9 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet]
+        
+        ///     API hỗ trợ JavaScript đọc lại voucher từ session (ví dụ sau khi redirect từ vòng quay may mắn).
+        
         public IActionResult GetAppliedVoucherApi()
         {
             try
@@ -875,6 +1075,10 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet]
+        
+        ///     Tính toán lại subtotal/discount/ship/VAT/total trên server và trả về JSON
+        ///     để UI cập nhật tức thời sau khi áp dụng/xóa voucher.
+        
         public IActionResult GetCheckoutSummary()
         {
             try
@@ -907,6 +1111,9 @@ namespace PerfumeStore.Controllers
 
         // Test method để kiểm tra database connection
         [HttpGet]
+        
+        ///     Endpoint debug: kiểm tra kết nối database bằng cách đếm số Customer.
+        
         public async Task<IActionResult> TestDatabaseConnection()
         {
             try
@@ -938,6 +1145,9 @@ namespace PerfumeStore.Controllers
 
         // Test method để test toàn bộ flow đặt hàng
         [HttpPost]
+        
+        ///     Luồng thử nghiệm end-to-end: tạo cart test, build CheckoutViewModel và gọi OrderService.CreateOrderAsync.
+        
         public async Task<IActionResult> TestOrderFlow()
         {
             try
@@ -1004,6 +1214,9 @@ namespace PerfumeStore.Controllers
 
         // API để lấy địa chỉ mặc định của khách hàng
         [HttpGet]
+        
+        ///     Lấy địa chỉ mặc định của khách hàng đăng nhập (được dùng để auto-fill form Checkout).
+        
         public async Task<IActionResult> GetDefaultAddress()
         {
             try
@@ -1053,6 +1266,9 @@ namespace PerfumeStore.Controllers
 
         // Trang test checkout flow
         [HttpGet]
+        
+        ///     Trang HTML nhẹ để QA kiểm tra form checkout (không ảnh hưởng người dùng thật).
+        
         public IActionResult TestCheckout()
         {
             return View();
@@ -1060,6 +1276,9 @@ namespace PerfumeStore.Controllers
 
         // Trang test real checkout flow
         [HttpGet]
+        
+        ///     Trang demo chứa flow checkout thực tế (bao gồm PayOS) dành cho nội bộ kiểm thử.
+        
         public IActionResult TestRealCheckout()
         {
             return View();
@@ -1067,6 +1286,9 @@ namespace PerfumeStore.Controllers
 
         // API để thêm sản phẩm thật từ database vào cart
         [HttpGet]
+        
+        ///     Lấy 2 sản phẩm thật từ database và đưa vào session để đội sale test.
+        
         public async Task<IActionResult> AddRealProductsToCart()
         {
             try
@@ -1120,6 +1342,9 @@ namespace PerfumeStore.Controllers
 
         // API để kiểm tra sản phẩm trong database
         [HttpGet]
+        
+        ///     Endpoint hỗ trợ QA thống kê nhanh số sản phẩm publish/freeze.
+        
         public async Task<IActionResult> GetDatabaseProducts()
         {
             try
@@ -1144,6 +1369,8 @@ namespace PerfumeStore.Controllers
 
         // API để xóa giỏ hàng
         [HttpGet]
+        ///     Xóa hoàn toàn giỏ hàng trong session – dùng cho thao tác thử nghiệm.
+        
         public IActionResult ClearCart()
         {
             try
@@ -1167,6 +1394,9 @@ namespace PerfumeStore.Controllers
 
         // Test endpoint đơn giản để kiểm tra form submission
         [HttpPost]
+        
+        ///     In ra console nội dung form checkout gửi lên (debug front-end).
+        
         public IActionResult TestFormSubmission(CheckoutViewModel model)
         {
             Console.WriteLine("=== TEST FORM SUBMISSION ===");
@@ -1206,6 +1436,9 @@ namespace PerfumeStore.Controllers
 
         // Test endpoint để kiểm tra toàn bộ flow đặt hàng
         [HttpGet]
+        
+        ///     Bộ kịch bản kiểm thử tổng thể: từ kiểm tra DB, thêm hàng vào cart, tạo order đến đọc lại order.
+        
         public async Task<IActionResult> TestFullCheckoutFlow()
         {
             try

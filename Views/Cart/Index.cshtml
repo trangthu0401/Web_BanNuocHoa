@@ -4,6 +4,15 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
+@* 
+    ============================================================
+    - Hiển thị danh sách sản phẩm trong session giỏ hàng
+    - Cho phép thao tác tăng/giảm, xóa, đánh dấu yêu thích
+    - Cột bên phải thể hiện tạm tính + quick payment (gọi Cart/QuickPayment)
+    - Script cuối trang đồng bộ số lượng, discount và gọi API voucher/summary
+    ============================================================
+*@ 
+
 <div class="container-md px-2">
     <div class="row g-4">
         <!-- Giỏ hàng -->
@@ -51,13 +60,21 @@
                                                     <img src="@item.ImageUrl" class="rounded border me-3"
                                                          style="width:64px;height:64px;object-fit:cover"
                                                          alt="@item.ProductName" />
-                                                    <div>
-                                                        <div class="fw-semibold">@item.ProductName</div>
-                                                        @if (!string.IsNullOrWhiteSpace(item.Description))
-                                                        {
-                                                            <div class="text-muted small">@item.Description</div>
-                                                        }
-                                                        <span class="badge bg-secondary small">SKU: AUTO</span>
+                                                    <div class="flex-grow-1">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <div>
+                                                                <div class="fw-semibold">@item.ProductName</div>
+                                                                @if (!string.IsNullOrWhiteSpace(item.Description))
+                                                                {
+                                                                    <div class="text-muted small">@item.Description</div>
+                                                                }
+                                                                <span class="badge bg-secondary small">SKU: AUTO</span>
+                                                            </div>
+                                                            <!-- Favorite button for cart item -->
+                                                            <div class="ms-2">
+                                                                @await Html.PartialAsync("_SimpleFavoriteButton", item.ProductId)
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -107,18 +124,6 @@
                     <a href="/" class="btn btn-outline-secondary">
                         <i class="fas fa-arrow-left me-2"></i>Tiếp tục mua hàng
                     </a>
-                    @if (Model.Any())
-                    {
-                        <a href="@Url.Action("Checkout", "Cart")" class="btn btn-orange px-4" id="btnProceed">
-                            <i class="fas fa-credit-card me-2"></i>Tiến hành đặt hàng
-                        </a>
-                    }
-                    else
-                    {
-                        <button class="btn btn-secondary px-4" disabled>
-                            <i class="fas fa-credit-card me-2"></i>Tiến hành đặt hàng
-                        </button>
-                    }
                 </div>
             </div>
         </div>
@@ -165,17 +170,14 @@
 
                     @if (Model.Any())
                     {
-                        <form method="post" action="@Url.Action("QuickPayment", "Cart")" style="display: inline-block; width: 100%;">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-orange w-100 btn-lg" id="btnProceed2">
-                                <i class="fas fa-credit-card me-2"></i>Thanh toán ngay
-                            </button>
-                        </form>
+                        <a href="@Url.Action("Checkout", "Cart")" class="btn btn-orange w-100 btn-lg" id="btnProceed">
+                            <i class="fas fa-credit-card me-2"></i>Tiến hành đặt hàng
+                        </a>
                     }
                     else
                     {
                         <button class="btn btn-secondary w-100 btn-lg" disabled>
-                            <i class="fas fa-credit-card me-2"></i>Thanh toán ngay
+                            <i class="fas fa-credit-card me-2"></i>Tiến hành đặt hàng
                         </button>
                     }
                 </div>
@@ -280,6 +282,8 @@
             document.addEventListener('click', function(e) {
                 if (e.target.closest('.js-remove')) {
                     e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
                     const button = e.target.closest('.js-remove');
                     const imageUrl = button.getAttribute('data-url');
                     
@@ -330,7 +334,7 @@
                         });
                     }
                 }
-            });
+            }, true);
 
             // Update cart totals
             function updateCartTotals() {

@@ -1,4 +1,4 @@
-@model PerfumeStore.Areas.Admin.Models.DashboardViewModel
+@model PerfumeStore.Areas.Admin.Models.ViewModels.ExtendedDashboardViewModel
 @{
     Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
     ViewData["Title"] = "Thống kê doanh thu";
@@ -246,6 +246,222 @@
                         </small>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Statistics Section -->
+<div class="row g-4 mb-4">
+    <!-- Product Statistics -->
+    <div class="col-xl-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 pb-0">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-box me-2 text-info"></i>Thống kê sản phẩm
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="h4 mb-1 text-primary">@Model.TotalProducts</div>
+                            <small class="text-muted">Tổng sản phẩm</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="h4 mb-1 text-success">@Model.PublishedProducts</div>
+                            <small class="text-muted">Đang bán</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="h4 mb-1 text-warning">@Model.UnpublishedProducts</div>
+                            <small class="text-muted">Ngừng bán</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="h4 mb-1 text-info">@Model.ProductsByBrand.Count</div>
+                            <small class="text-muted">Thương hiệu</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Statistics -->
+    <div class="col-xl-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 pb-0 d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-warehouse me-2 text-warning"></i>Thống kê tồn kho
+                </h6>
+                <a href="@Url.Action("StockManagement")" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-eye me-1"></i>Chi tiết
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                            <div>
+                                <div class="h5 mb-1 text-success">@Model.TotalStockValue.ToString("N0") VNĐ</div>
+                                <small class="text-muted">Tổng giá trị tồn kho</small>
+                            </div>
+                            <i class="fas fa-coins fa-2x text-success"></i>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="h4 mb-1 text-danger">@Model.OutOfStockProducts</div>
+                            <small class="text-muted">Hết hàng</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="h4 mb-1 text-warning">@Model.LowStockProducts</div>
+                            <small class="text-muted">Sắp hết</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Notifications -->
+    <div class="col-xl-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 pb-0 d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-bell me-2 text-danger"></i>Thông báo tồn kho
+                    @if (Model.UnreadNotifications > 0)
+                    {
+                        <span class="badge bg-danger rounded-pill ms-2">@Model.UnreadNotifications</span>
+                    }
+                </h6>
+                <button class="btn btn-sm btn-outline-secondary" onclick="refreshNotifications()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+                    @if (Model.LowStockNotifications.Any())
+                    {
+                        @foreach (var notification in Model.LowStockNotifications.Take(5))
+                        {
+                            <div class="list-group-item border-0 py-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-exclamation-triangle text-@(notification.Priority == "High" ? "danger" : notification.Priority == "Medium" ? "warning" : "info")"></i>
+                                    </div>
+                                    <div class="flex-grow-1 ms-2">
+                                        <div class="fw-semibold small">@notification.ProductName</div>
+                                        <small class="text-muted">@notification.BrandName - Còn @notification.Stock sản phẩm</small>
+                                    </div>
+                                    <div class="flex-shrink-0">
+                                        <span class="badge bg-@(notification.Priority == "High" ? "danger" : notification.Priority == "Medium" ? "warning" : "info") rounded-pill">
+                                            @notification.Stock
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @if (Model.LowStockNotifications.Count > 5)
+                        {
+                            <div class="list-group-item border-0 text-center py-2">
+                                <small class="text-muted">Và @(Model.LowStockNotifications.Count - 5) thông báo khác...</small>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="list-group-item border-0 text-center py-4">
+                            <i class="fas fa-check-circle text-success fa-2x mb-2 d-block"></i>
+                            <small class="text-muted">Tất cả sản phẩm đều có đủ hàng</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Product Statistics Charts -->
+<div class="row g-4 mb-4">
+    <!-- Products by Category -->
+    <div class="col-xl-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 pb-0">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-tags me-2 text-primary"></i>Sản phẩm theo danh mục
+                </h6>
+            </div>
+            <div class="card-body">
+                @if (Model.ProductsByCategory.Any())
+                {
+                    <canvas id="categoryChart" height="300"></canvas>
+                }
+                else
+                {
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-tags fa-3x mb-3 d-block"></i>
+                        <p>Chưa có dữ liệu danh mục</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Products by Brand -->
+    <div class="col-xl-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 pb-0">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-copyright me-2 text-success"></i>Sản phẩm theo thương hiệu
+                </h6>
+            </div>
+            <div class="card-body">
+                @if (Model.ProductsByBrand.Any())
+                {
+                    <div class="table-responsive" style="max-height: 300px;">
+                        <table class="table table-sm">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Thương hiệu</th>
+                                    <th class="text-center">Số lượng</th>
+                                    <th class="text-center">Tỷ lệ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var brand in Model.ProductsByBrand.Take(10))
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@brand.BrandName</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary rounded-pill">@brand.ProductCount</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="progress" style="height: 6px;">
+                                                <div class="progress-bar bg-success" style="width: @brand.Percentage%"></div>
+                                            </div>
+                                            <small class="text-muted">@brand.Percentage%</small>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-copyright fa-3x mb-3 d-block"></i>
+                        <p>Chưa có dữ liệu thương hiệu</p>
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -587,6 +803,103 @@ function getCurrentFilterParams() {
 
 
 
+// Category Chart
+const categoryChartElement = document.getElementById('categoryChart');
+if (categoryChartElement) {
+    const categoryCtx = categoryChartElement.getContext('2d');
+    const categoryData = @Html.Raw(Json.Serialize(Model.ProductsByCategory.Take(8).Select(c => new { 
+        category = c.CategoryName, 
+        count = c.ProductCount,
+        percentage = c.Percentage
+    })));
+
+    const categoryColors = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14', '#20c997', '#6c757d'];
+
+    new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: categoryData.map(d => d.category),
+            datasets: [{
+                data: categoryData.map(d => d.count),
+                backgroundColor: categoryColors,
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        usePointStyle: true,
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const data = categoryData[context.dataIndex];
+                            return data.category + ': ' + data.count + ' sản phẩm (' + data.percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Notification functions
+function refreshNotifications() {
+    fetch('@Url.Action("GetLowStockNotifications")')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update notification count in header if exists
+                const notificationBadge = document.querySelector('.notification-badge');
+                if (notificationBadge) {
+                    notificationBadge.textContent = data.count;
+                    notificationBadge.style.display = data.count > 0 ? 'inline' : 'none';
+                }
+                
+                // Show toast notification
+                if (data.count > 0) {
+                    showToast(`Có ${data.count} sản phẩm cần chú ý về tồn kho`, 'warning');
+                } else {
+                    showToast('Tất cả sản phẩm đều có đủ hàng', 'success');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing notifications:', error);
+            showToast('Lỗi khi tải thông báo', 'error');
+        });
+}
+
+function showToast(message, type = 'info') {
+    // Simple toast notification (you can replace with your preferred toast library)
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 5000);
+}
+
 // Quick filter buttons
 function setQuickFilter(type) {
     const timeTypeSelect = document.getElementById('timeTypeSelect');
@@ -612,6 +925,9 @@ function setQuickFilter(type) {
     toggleDateInputs();
     document.querySelector('form').submit();
 }
+
+// Auto refresh notifications every 5 minutes
+setInterval(refreshNotifications, 300000);
 </script>
 
 <style>

@@ -15,13 +15,13 @@ namespace PerfumeStore.Areas.Admin.Controllers
     {
         public readonly PerfumeStoreContext _context;
         private readonly IPaginationService _paginationService;
-        
+
         public LiterController(PerfumeStoreContext context, IPaginationService paginationService)
         {
             _context = context;
             _paginationService = paginationService;
         }
-        
+
         public async Task<IActionResult> Index(int page = 1)
         {
             var litersQuery = _context.Liters.OrderBy(l => l.LiterId).AsQueryable();

@@ -3,6 +3,12 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
+@*
+    - Được gọi khi khách hủy PayOS hoặc giao dịch hết hạn.
+    - PaymentController.CancelPayment cập nhật trạng thái order trước khi render trang này.
+    - Nội dung giải thích lý do phổ biến và hướng dẫn khách quay lại Checkout để thử thanh toán lại.
+*@
+
 <style>
     .cancel-payment-container {
         min-height: 100vh;

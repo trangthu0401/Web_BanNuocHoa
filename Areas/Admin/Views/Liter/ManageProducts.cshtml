@@ -1,0 +1,306 @@
+@model PerfumeStore.Areas.Admin.Models.Liter
+
+@{
+    ViewData["Title"] = "Quản lý sản phẩm";
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+    var allProducts = ViewBag.AllProducts as List<PerfumeStore.Areas.Admin.Models.Product> ?? new List<PerfumeStore.Areas.Admin.Models.Product>();
+    var linkedProductIds = ViewBag.LinkedProductIds as List<int> ?? new List<int>();
+}
+
+<div class="container-fluid px-4">
+    <!-- Header -->
+    <div class="d-flex align-items-center mb-4 mt-3">
+        <a asp-action="Index" class="btn btn-outline-secondary me-3">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h2 class="mb-0"><i class="bi bi-link-45deg text-info"></i> Quản lý sản phẩm</h2>
+            <p class="text-muted mb-0">Gán dung tích <strong>@Model.LiterNumber ml</strong> cho sản phẩm</p>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle"></i> @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Liter Info Card -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-info text-white py-3">
+            <h5 class="mb-0"><i class="bi bi-droplet-half"></i> Thông tin dung tích</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="text-center p-3 bg-light rounded">
+                        <i class="bi bi-droplet text-primary fs-1"></i>
+                        <h4 class="mt-2 mb-0">@Model.LiterNumber ml</h4>
+                        <small class="text-muted">Dung tích</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center p-3 bg-light rounded">
+                        <i class="bi bi-currency-dollar text-success fs-1"></i>
+                        <h4 class="mt-2 mb-0">@Model.LiterPrice.ToString("N0") ₫</h4>
+                        <small class="text-muted">Giá</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center p-3 bg-light rounded">
+                        <i class="bi bi-box-seam text-warning fs-1"></i>
+                        <h4 class="mt-2 mb-0">@linkedProductIds.Count</h4>
+                        <small class="text-muted">Sản phẩm đã gán</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center p-3 bg-light rounded">
+                        <i class="bi bi-list-ul text-info fs-1"></i>
+                        <h4 class="mt-2 mb-0">@allProducts.Count</h4>
+                        <small class="text-muted">Tổng sản phẩm</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form asp-action="ManageProducts" asp-route-id="@Model.LiterId" method="post">
+        @Html.AntiForgeryToken()
+        
+        <!-- Search and Filter -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" id="searchInput" class="form-control" placeholder="Tìm kiếm sản phẩm...">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select id="brandFilter" class="form-select">
+                            <option value="">Tất cả thương hiệu</option>
+                            @foreach (var brand in allProducts.Select(p => p.Brand).Distinct().OrderBy(b => b?.BrandName))
+                            {
+                                <option value="@brand?.BrandId">@brand?.BrandName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-primary" id="selectAllBtn">
+                                <i class="bi bi-check-all"></i> Chọn tất cả
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="deselectAllBtn">
+                                <i class="bi bi-x-square"></i> Bỏ chọn
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Products List -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-box-seam"></i> Danh sách sản phẩm</h5>
+                    <span class="badge bg-primary" id="selectedCount">Đã chọn: 0</span>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                @if (allProducts.Any())
+                {
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="width: 50px;" class="text-center">
+                                        <input type="checkbox" id="checkAll" />
+                                    </th>
+                                    <th style="width: 80px;">ID</th>
+                                    <th>Tên sản phẩm</th>
+                                    <th>Thương hiệu</th>
+                                    <th class="text-end">Giá</th>
+                                    <th class="text-center" style="width: 100px;">Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody">
+                                @foreach (var product in allProducts)
+                                {
+                                    var isLinked = linkedProductIds.Contains(product.ProductId);
+                                    <tr class="product-row" data-product-id="@product.ProductId" 
+                                        data-product-name="@product.ProductName.ToLower()"
+                                        data-brand-id="@product.BrandId">
+                                        <td class="text-center">
+                                            <input type="checkbox" name="selectedProductIds" 
+                                                   value="@product.ProductId" 
+                                                   class="product-checkbox"
+                                                   @(isLinked ? "checked" : "") />
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">#@product.ProductId</span>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                @if (product.ProductImages?.Any() == true)
+                                                {
+                                                    var firstImage = product.ProductImages.First();
+                                                    <img src="data:@firstImage.ImageMimeType;base64,@Convert.ToBase64String(firstImage.ImageData)" 
+                                                         class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;" 
+                                                         alt="@product.ProductName" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="bg-light rounded me-2 d-flex align-items-center justify-content-center" 
+                                                         style="width: 40px; height: 40px;">
+                                                        <i class="bi bi-image text-muted"></i>
+                                                    </div>
+                                                }
+                                                <div>
+                                                    <div class="fw-semibold">@product.ProductName</div>
+                                                    <small class="text-muted">@product.SuggestionName</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">@(product.Brand?.BrandName ?? "N/A")</span>
+                                        </td>
+                                        <td class="text-end">
+                                            @if (product.DiscountPrice.HasValue)
+                                            {
+                                                <div>
+                                                    <strong class="text-danger">@product.DiscountPrice.Value.ToString("N0") ₫</strong>
+                                                    <div><small class="text-muted text-decoration-line-through">@product.Price.ToString("N0") ₫</small></div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <strong class="text-danger">@product.Price.ToString("N0") ₫</strong>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (isLinked)
+                                            {
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle"></i> Đã gán
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Chưa gán</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+                        <p class="text-muted mb-0">Không có sản phẩm nào</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <a asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Quay lại
+                    </a>
+                    <div>
+                        <a asp-action="Edit" asp-route-id="@Model.LiterId" class="btn btn-warning me-2">
+                            <i class="bi bi-pencil"></i> Chỉnh sửa dung tích
+                        </a>
+                        <button type="submit" class="btn btn-primary px-5">
+                            <i class="bi bi-save"></i> Lưu thay đổi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        // Update selected count
+        function updateSelectedCount() {
+            const checked = document.querySelectorAll('.product-checkbox:checked').length;
+            document.getElementById('selectedCount').textContent = `Đã chọn: ${checked}`;
+        }
+
+        // Check all
+        document.getElementById('checkAll')?.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.product-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateSelectedCount();
+        });
+
+        // Select all visible
+        document.getElementById('selectAllBtn')?.addEventListener('click', function() {
+            const visibleRows = document.querySelectorAll('.product-row:not([style*="display: none"])');
+            visibleRows.forEach(row => {
+                const checkbox = row.querySelector('.product-checkbox');
+                if (checkbox) checkbox.checked = true;
+            });
+            updateSelectedCount();
+        });
+
+        // Deselect all
+        document.getElementById('deselectAllBtn')?.addEventListener('click', function() {
+            document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('checkAll').checked = false;
+            updateSelectedCount();
+        });
+
+        // Update count when checkbox changes
+        document.querySelectorAll('.product-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateSelectedCount);
+        });
+
+        // Search
+        document.getElementById('searchInput')?.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('.product-row');
+            rows.forEach(row => {
+                const productName = row.dataset.productName || '';
+                const matches = productName.includes(searchTerm);
+                row.style.display = matches ? '' : 'none';
+            });
+            updateSelectedCount();
+        });
+
+        // Brand filter
+        document.getElementById('brandFilter')?.addEventListener('change', function() {
+            const brandId = this.value;
+            const rows = document.querySelectorAll('.product-row');
+            rows.forEach(row => {
+                const matches = !brandId || row.dataset.brandId === brandId;
+                row.style.display = matches ? '' : 'none';
+            });
+            updateSelectedCount();
+        });
+
+        // Initial count
+        updateSelectedCount();
+    </script>
+}
+

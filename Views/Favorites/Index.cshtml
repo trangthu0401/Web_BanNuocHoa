@@ -1,0 +1,225 @@
+@model IEnumerable<PerfumeStore.Models.Product>
+
+@{
+    ViewData["Title"] = "Danh sách yêu thích";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@Html.AntiForgeryToken()
+
+
+<div class="favorites-header">
+    <div class="container">
+        <h2>
+            <i class="bi bi-heart-fill me-3"></i>
+            Danh sách yêu thích của bạn
+        </h2>
+        <p class="mb-0 mt-2">@Model.Count() sản phẩm yêu thích</p>
+    </div>
+</div>
+
+<div class="container favorites-container">
+    <div class="row">
+        <div class="col-12">
+
+            @if (Model.Any())
+            {
+                <div class="row">
+                    @foreach (var product in Model)
+                    {
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+                            <div class="card h-100 favorite-product-card">
+                                <div class="position-relative">
+                                    @if (product.ProductImages.Any())
+                                    {
+                                        <img src="data:@product.ProductImages.First().ImageMimeType;base64,@Convert.ToBase64String(product.ProductImages.First().ImageData)"
+                                             class="card-img-top" alt="@product.ProductName" style="height: 250px; object-fit: cover;">
+                                    }
+                                    else
+                                    {
+                                        <img src="~/images/no-image.png" class="card-img-top" alt="No Image" style="height: 250px; object-fit: cover;">
+                                    }
+                                    
+                                    <!-- Remove from favorites button -->
+                                    <button class="favorite-remove-btn position-absolute" 
+                                            style="top: 10px; right: 10px;"
+                                            onclick="removeFromFavorites(@product.ProductId)"
+                                            title="Xóa khỏi yêu thích">
+                                        <i class="bi bi-heart-fill"></i>
+                                    </button>
+                                </div>
+
+                                <div class="card-body d-flex flex-column">
+                                    <h6 class="card-title">@product.ProductName</h6>
+                                    <p class="text-muted small mb-2">@product.Brand?.BrandName</p>
+                                    
+                                    @if (!string.IsNullOrEmpty(product.Introduction))
+                                    {
+                                        <p class="card-text small text-muted">
+                                            @(product.Introduction.Length > 80 ? product.Introduction.Substring(0, 80) + "..." : product.Introduction)
+                                        </p>
+                                    }
+
+                                    <div class="mt-auto">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            @if (product.DiscountPrice.HasValue && product.DiscountPrice > 0)
+                                            {
+                                                <div>
+                                                    <span class="text-decoration-line-through text-muted">@product.Price.ToString("N0") ₫</span>
+                                                    <span class="text-danger fw-bold">@product.DiscountPrice.Value.ToString("N0") ₫</span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-primary fw-bold">@product.Price.ToString("N0") ₫</span>
+                                            }
+                                        </div>
+
+                                        <div class="d-flex gap-2">
+                                            <a href="@Url.Action("Index", "Product", new { id = product.ProductId })" 
+                                               class="btn btn-outline-primary btn-sm flex-fill">
+                                                <i class="bi bi-eye"></i> Xem chi tiết
+                                            </a>
+                                            <button class="btn btn-primary btn-sm add-to-cart-btn" 
+                                                    data-product-id="@product.ProductId"
+                                                    data-product-name="@product.ProductName"
+                                                    data-product-price="@(product.DiscountPrice ?? product.Price)"
+                                                    data-image-url="@(product.ProductImages.Any() ? $"data:{product.ProductImages.First().ImageMimeType};base64,{Convert.ToBase64String(product.ProductImages.First().ImageData)}" : "/images/no-image.png")"
+                                                    onclick="addToCartFromFavorites(this)">
+                                                <i class="bi bi-cart-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="favorites-empty">
+                    <i class="bi bi-heart" style="font-size: 4rem;"></i>
+                    <h4>Chưa có sản phẩm yêu thích</h4>
+                    <p>Hãy thêm những sản phẩm bạn yêu thích để dễ dàng tìm lại sau này!</p>
+                    <a href="@Url.Action("Index", "Home")" class="btn btn-primary btn-lg">
+                        <i class="bi bi-bag me-2"></i> Khám phá sản phẩm
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+.product-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+</style>
+
+<script>
+function removeFromFavorites(productId) {
+    if (confirm('Bạn có chắc muốn xóa sản phẩm này khỏi danh sách yêu thích?')) {
+        var token = $('input[name="__RequestVerificationToken"]').val();
+        
+        $.ajax({
+            url: '@Url.Action("RemoveFromFavorites", "Favorites")',
+            type: 'POST',
+            data: { 
+                productId: productId,
+                __RequestVerificationToken: token
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    alert(response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra. Vui lòng thử lại!');
+            }
+        });
+    }
+}
+
+function addToCartFromFavorites(button) {
+    var productId = $(button).data('product-id');
+    var productName = $(button).data('product-name');
+    var productPrice = $(button).data('product-price');
+    var imageUrl = $(button).data('image-url');
+    
+    console.log('Adding to cart:', { productId, productName, productPrice, imageUrl });
+    
+    // Disable button to prevent double click
+    $(button).prop('disabled', true);
+    $(button).html('<i class="bi bi-hourglass-split"></i>');
+    
+    $.ajax({
+        url: '@Url.Action("AddToCart", "Cart")',
+        type: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        data: {
+            productId: productId,
+            name: productName,
+            price: productPrice,
+            imageUrl: imageUrl,
+            __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+        },
+        success: function(response) {
+            console.log('Cart response:', response);
+            
+            // Re-enable button
+            $(button).prop('disabled', false);
+            $(button).html('<i class="bi bi-cart-plus"></i>');
+            
+            if (response.success) {
+                // Update cart count
+                var cartCount = response.cartCount;
+                if (cartCount && cartCount > 0) {
+                    $('#desktop-cart-count, #mobile-cart-count, .cart-count').text(cartCount).show();
+                }
+                
+                // Show success message
+                showToast('Đã thêm "' + productName + '" vào giỏ hàng!', 'success');
+            } else {
+                showToast(response.message || 'Có lỗi xảy ra!', 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Cart error:', error);
+            console.error('Response:', xhr.responseText);
+            
+            // Re-enable button
+            $(button).prop('disabled', false);
+            $(button).html('<i class="bi bi-cart-plus"></i>');
+            
+            showToast('Có lỗi xảy ra khi thêm vào giỏ hàng!', 'error');
+        }
+    });
+}
+
+function showToast(message, type) {
+    var alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    var toast = $('<div class="alert ' + alertClass + ' alert-dismissible fade show position-fixed" style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">' +
+                  '<span>' + message + '</span>' +
+                  '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                  '</div>');
+    
+    $('body').append(toast);
+    
+    setTimeout(function() {
+        toast.alert('close');
+    }, 3000);
+}
+</script>

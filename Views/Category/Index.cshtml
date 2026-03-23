@@ -67,9 +67,126 @@
             container.style.opacity = 1;
             rebindFilterEvents();
             if (typeof bindViewToggle === "function") bindViewToggle();
-            // Rebind add-to-cart events for new content
-            rebindAddToCartEvents();
+            // Inject add-to-cart buttons using site.js logic
+            injectAddToCartButtons();
         }, 200);
+    }
+    
+    // Function to inject add-to-cart buttons (same logic as site.js)
+    function injectAddToCartButtons() {
+        const productCards = document.querySelectorAll('.product-card');
+        productCards.forEach(function (card) {
+            // Skip if button already exists
+            if (card.querySelector('.add-to-cart-fab')) return;
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-danger btn-sm rounded-pill add-to-cart-fab';
+            btn.innerHTML = '<i class="bi bi-cart-plus"></i> <span class="d-none d-md-inline">Thêm</span>';
+            btn.setAttribute('aria-label', 'Thêm vào giỏ hàng');
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Get product information from the card
+                const productName = card.querySelector('.product-title a')?.textContent?.trim() || 
+                                   card.querySelector('.product-title')?.textContent?.trim() || 'Sản phẩm';
+                const priceText = card.querySelector('.card-text.text-danger')?.textContent?.trim() || '0 ₫';
+                const price = parseFloat(priceText.replace(/[^\d]/g, '')) || 0;
+                
+                // Get product image
+                const img = card.querySelector('.card-img-top');
+                const imageUrl = img ? img.src : '/images/default-product.jpg';
+                
+                // Get ProductId from the link URL (e.g., /Product/Index/123)
+                let productId = 0;
+                const productLink = card.querySelector('a[href*="/Product/Index/"]');
+                if (productLink) {
+                    const href = productLink.getAttribute('href');
+                    const match = href.match(/\/Product\/Index\/(\d+)/);
+                    if (match) {
+                        productId = parseInt(match[1]);
+                    }
+                }
+                
+                // Disable button temporarily
+                btn.disabled = true;
+                btn.classList.add('disabled');
+                btn.innerHTML = '<i class="bi bi-hourglass-split"></i> <span class="d-none d-md-inline">Đang thêm...</span>';
+                
+                // Create form data
+                const formData = new FormData();
+                formData.append('imageUrl', imageUrl);
+                formData.append('name', productName);
+                formData.append('price', price);
+                if (productId > 0) {
+                    formData.append('productId', productId);
+                }
+                
+                // Get anti-forgery token
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                if (token) {
+                    formData.append('__RequestVerificationToken', token);
+                }
+                
+                // Send AJAX request
+                fetch('/Cart/AddToCart', {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Add to cart response:', data);
+                    if (data.success) {
+                        // Show success message
+                        btn.innerHTML = '<i class="bi bi-check-circle"></i> <span class="d-none d-md-inline">Đã thêm!</span>';
+                        btn.classList.remove('btn-danger');
+                        btn.classList.add('btn-success');
+                        
+                        // Update cart count if available
+                        console.log('Updating cart count with:', data.cartCount);
+                        if (typeof updateCartCount === 'function') {
+                            updateCartCount(data.cartCount);
+                        }
+                        
+                        // Show toast notification
+                        if (typeof showToast === 'function') {
+                            showToast(data.message || 'Đã thêm sản phẩm vào giỏ hàng!', 'success');
+                        }
+                    } else {
+                        // Hiển thị thông báo lỗi từ server
+                        btn.innerHTML = '<i class="bi bi-exclamation-circle"></i> <span class="d-none d-md-inline">Lỗi!</span>';
+                        btn.classList.remove('btn-danger');
+                        btn.classList.add('btn-warning');
+                        if (typeof showToast === 'function') {
+                            showToast(data.message || 'Có lỗi xảy ra khi thêm sản phẩm!', 'error');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error adding to cart:', error);
+                    btn.innerHTML = '<i class="bi bi-exclamation-circle"></i> <span class="d-none d-md-inline">Lỗi!</span>';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-warning');
+                    if (typeof showToast === 'function') {
+                        showToast(error.message || 'Có lỗi xảy ra khi thêm sản phẩm!', 'error');
+                    }
+                })
+                .finally(() => {
+                    // Re-enable button after delay
+                    setTimeout(function () {
+                        btn.disabled = false;
+                        btn.classList.remove('disabled', 'btn-success', 'btn-warning');
+                        btn.classList.add('btn-danger');
+                        btn.innerHTML = '<i class="bi bi-cart-plus"></i> <span class="d-none d-md-inline">Thêm</span>';
+                    }, 2000);
+                });
+            });
+            card.appendChild(btn);
+        });
     }
 
     function rebindFilterEvents() {
@@ -121,111 +238,12 @@
         // Re-bind add to cart events after filtering
     }
 
-    document.addEventListener('DOMContentLoaded', rebindFilterEvents);
-    
-    // Function to rebind add-to-cart events for dynamically loaded content
-    function rebindAddToCartEvents() {
-        // Remove existing event listeners to avoid duplicates
-        document.querySelectorAll('.add-to-cart-fab').forEach(btn => {
-            btn.replaceWith(btn.cloneNode(true));
-        });
-        
-        // Rebind events using the same logic as site.js
-        document.querySelectorAll('.add-to-cart-fab').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const productId = this.dataset.productId;
-                const productName = this.dataset.productName;
-                const productPrice = this.dataset.productPrice;
-                const imageUrl = this.dataset.imageUrl;
-                
-                console.log('Product data:', { productId, productName, productPrice, imageUrl });
-                
-                if (!productId) {
-                    console.error('Product ID not found');
-                    return;
-                }
-                
-                // Show loading state
-                const originalContent = this.innerHTML;
-                this.innerHTML = '<i class="bi bi-hourglass-split"></i> <span class="d-none d-md-inline">Đang thêm...</span>';
-                this.disabled = true;
-                
-                // Get CSRF token
-                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-                console.log('CSRF token:', token);
-                
-                // Prepare form data
-                const formData = new FormData();
-                formData.append('imageUrl', imageUrl);
-                formData.append('name', productName);
-                formData.append('price', productPrice);
-                if (token) {
-                    formData.append('__RequestVerificationToken', token);
-                }
-                
-                // Send AJAX request
-                fetch('/Cart/AddToCart', {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: formData
-                })
-                .then(response => {
-                    console.log('Response status:', response.status);
-                    console.log('Response headers:', response.headers);
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Response data:', data);
-                    if (data.success) {
-                        // Show success message
-                        this.innerHTML = '<i class="bi bi-check-circle"></i> <span class="d-none d-md-inline">Đã thêm!</span>';
-                        this.classList.remove('btn-danger');
-                        this.classList.add('btn-success');
-                        
-                        // Update cart count if available
-                        if (typeof updateCartCount === 'function') {
-                            updateCartCount(data.cartCount);
-                        }
-                        
-                        // Show toast notification
-                        showToast(data.message || 'Đã thêm sản phẩm vào giỏ hàng!', 'success');
-                    } else {
-                        // Hiển thị thông báo lỗi từ server
-                        this.innerHTML = '<i class="bi bi-exclamation-circle"></i> <span class="d-none d-md-inline">Lỗi!</span>';
-                        this.classList.remove('btn-danger');
-                        this.classList.add('btn-warning');
-                        showToast(data.message || 'Có lỗi xảy ra khi thêm sản phẩm!', 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error adding to cart:', error);
-                    this.innerHTML = '<i class="bi bi-exclamation-circle"></i> <span class="d-none d-md-inline">Lỗi!</span>';
-                    this.classList.remove('btn-danger');
-                    this.classList.add('btn-warning');
-                    showToast(error.message || 'Có lỗi xảy ra khi thêm sản phẩm!', 'error');
-                })
-                .finally(() => {
-                    this.disabled = false;
-                    // Reset button after 2 seconds
-                    setTimeout(() => {
-                        this.innerHTML = originalContent;
-                        this.classList.remove('btn-success', 'btn-warning');
-                        this.classList.add('btn-danger');
-                    }, 2000);
-                });
-            });
-        });
-    }
-    
-    // Initial bind on page load
-    document.addEventListener('DOMContentLoaded', rebindAddToCartEvents);
-    
-    // Toast notification function is handled by site.js
-    
-    // Add to cart events are handled by site.js
+    document.addEventListener('DOMContentLoaded', function() {
+        rebindFilterEvents();
+        // Inject add-to-cart buttons on initial page load
+        // Wait a bit to ensure site.js has run first, then inject if needed
+        setTimeout(() => {
+            injectAddToCartButtons();
+        }, 100);
+    });
 </script>

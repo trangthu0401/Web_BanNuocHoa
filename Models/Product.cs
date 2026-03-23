@@ -11,6 +11,7 @@ namespace PerfumeStore.Models
             OrderDetails = new HashSet<OrderDetail>();
             ProductImages = new HashSet<ProductImage>();
             Categories = new HashSet<Category>();
+            Customers = new HashSet<Customer>();
             Liters = new HashSet<Liter>();
         }
 
@@ -45,6 +46,7 @@ namespace PerfumeStore.Models
         public virtual ICollection<ProductImage> ProductImages { get; set; }
 
         public virtual ICollection<Category> Categories { get; set; }
+        public virtual ICollection<Customer> Customers { get; set; }
         public virtual ICollection<Liter> Liters { get; set; }
     }
 }
