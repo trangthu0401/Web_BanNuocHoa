@@ -1,55 +1,55 @@
-﻿using System;
+﻿using PerfumeStore.Models;
 
 namespace PerfumeStore.DesignPatterns.Strategy
 {
-    // 1. Giao diện chiến lược (Strategy Interface)
+    public class PaymentRouteResult
+    {
+        public string ActionName { get; set; }
+        public string ControllerName { get; set; }
+    }
+
+    /// <summary>
+    /// DESIGN PATTERN: STRATEGY (Chiến lược)
+    /// - Ứng dụng tại: CartController.cs -> Hàm: ProcessCheckout() (Sau khi Facade tạo xong Order)
+    /// - Luồng hoạt động: 
+    ///   Thay vì dùng các khối IF-ELSE khổng lồ để điều hướng khách hàng sau khi đặt đơn:
+    ///   + Nếu khách chọn COD -> Dùng CodPaymentStrategy -> Trả về Route trỏ tới trang Thành công.
+    ///   + Nếu khách chọn PAYOS -> Dùng PayOsPaymentStrategy -> Trả về Route trỏ sang PaymentController để tạo mã QR.
+    /// - Lợi ích: Tuân thủ Open/Closed Principle. Sau này muốn thêm Momo, ZaloPay chỉ cần tạo thêm class Strategy mới, không cần sửa đổi CartController.
+    /// </summary>
     public interface IPaymentStrategy
     {
-        // Mỗi phương thức thanh toán đều phải xử lý số tiền và mã đơn
-        void ProcessPayment(decimal amount, int orderId);
+        PaymentRouteResult ProcessRouting(Order order);
     }
 
-    // 2. Các chiến lược cụ thể (Concrete Strategies)
-
-    // 2.1. Chiến lược thanh toán khi nhận hàng (COD)
     public class CodPaymentStrategy : IPaymentStrategy
     {
-        public void ProcessPayment(decimal amount, int orderId)
+        public PaymentRouteResult ProcessRouting(Order order)
         {
-            // Logic: Cập nhật trạng thái đơn hàng là 'Chờ thanh toán'
-            Console.WriteLine($"[COD] Đơn hàng #{orderId}: Thu tiền mặt {amount:N0} VNĐ khi giao hàng.");
+            return new PaymentRouteResult { ActionName = "PaymentSuccess", ControllerName = "Cart" };
         }
     }
 
-    // 2.2. Chiến lược thanh toán Online qua PayOS
     public class PayOsPaymentStrategy : IPaymentStrategy
     {
-        public void ProcessPayment(decimal amount, int orderId)
+        public PaymentRouteResult ProcessRouting(Order order)
         {
-            // Logic: Gọi API PayOS tạo mã QR
-            Console.WriteLine($"[PayOS] Đơn hàng #{orderId}: Đang tạo mã QR thanh toán cho số tiền {amount:N0} VNĐ.");
+            return new PaymentRouteResult { ActionName = "CreatePaymentProgress", ControllerName = "Payment" };
         }
     }
 
-    // 3. Lớp ngữ cảnh (Context) - Nơi Controller gọi vào
     public class PaymentContext
     {
         private IPaymentStrategy _strategy;
 
-        // Cho phép thay đổi chiến lược thanh toán ngay lúc chạy (Runtime)
         public void SetStrategy(IPaymentStrategy strategy)
         {
             _strategy = strategy;
         }
 
-        public void ExecutePayment(decimal amount, int orderId)
+        public PaymentRouteResult ExecuteRouting(Order order)
         {
-            if (_strategy == null)
-            {
-                throw new InvalidOperationException("Lỗi: Chưa chọn phương thức thanh toán!");
-            }
-            // Ủy quyền xử lý cho chiến lược đã chọn
-            _strategy.ProcessPayment(amount, orderId);
+            return _strategy.ProcessRouting(order);
         }
     }
 }
