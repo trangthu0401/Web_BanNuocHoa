@@ -1,33 +1,32 @@
 ﻿using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using PerfumeStore.Models;
+using PerfumeStore.DesignPatterns.Proxy; // Import Proxy Pattern
 
 namespace PerfumeStore.Controllers
 {
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
-        private readonly PerfumeStore.Models.PerfumeStoreContext _db;
+        // Sử dụng Interface của Proxy thay vì gọi trực tiếp DbContext
+        private readonly IProductQueryService _productQueryService;
 
-        public HomeController(ILogger<HomeController> logger, PerfumeStore.Models.PerfumeStoreContext db)
+        // Tiêm Proxy vào Constructor
+        public HomeController(ILogger<HomeController> logger, IProductQueryService productQueryService)
         {
             _logger = logger;
-            _db = db;
+            _productQueryService = productQueryService;
         }
 
-        public IActionResult Index()
+        // Đổi thành async Task vì Proxy có gọi Database bất đồng bộ
+        public async Task<IActionResult> Index()
         {
-            List<Product> products = _db.Products
-                            .Include(p => p.ProductImages)
-                            .Include(p => p.Brand)
-                            .Include(p => p.Categories)
-                            .Where(p => p.IsPublished == true)
-                            .OrderByDescending(p => p.ProductId)
-                            .Take(10)
-                            .ToList();
-            var featured = products;
-            return View(featured);
+            // SỬ DỤNG PROXY PATTERN: 
+            // - Lần đầu tiên: Sẽ mất khoảng 0.5s để chọc xuống Database.
+            // - Trong 10 phút tiếp theo: Proxy sẽ trả ngay dữ liệu từ RAM (0.001s).
+            var featuredProducts = await _productQueryService.GetFeaturedProductsAsync();
+
+            return View(featuredProducts);
         }
 
         public IActionResult Privacy()

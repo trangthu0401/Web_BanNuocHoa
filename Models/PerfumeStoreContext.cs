@@ -42,7 +42,7 @@ namespace PerfumeStore.Models
             if (!optionsBuilder.IsConfigured)
             {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-                optionsBuilder.UseSqlServer("Server=DESKTOP-DPSMVOG;Database=PerfumeStore Ver.2 (1);User Id=SA;Password=@Password123;TrustServerCertificate=True;");
+                optionsBuilder.UseSqlServer("Server=.;Database=PerfumeStore Ver.2 (1);User Id=SA;Password=123;TrustServerCertificate=True;");
             }
         }
 

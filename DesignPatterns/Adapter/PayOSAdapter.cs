@@ -1,51 +1,34 @@
-﻿using System;
-
-namespace PerfumeStore.DesignPatterns.Adapter
+﻿namespace PerfumeStore.DesignPatterns.Adapter
 {
-    // --- PHẦN HỖ TRỢ (MÔ PHỎNG DỮ LIỆU PAYOS VÀ DATABASE) ---
-
-    // 1. Dữ liệu giả định từ PayOS gửi về (Adaptee)
-    public class PayOSWebhookData
-    {
-        public string orderCode { get; set; }
-        public string status { get; set; } // PayOS trả về: "PAID", "PENDING", "CANCELLED"
-    }
-
-    // 2. Định nghĩa trạng thái đơn hàng trong Database nội bộ (Target)
     public enum InternalOrderStatus
     {
-        Pending = 0,    // Chờ xử lý
-        Paid = 1,       // Đã thanh toán
-        Failed = -1,    // Hủy bỏ
-        Unknown = 99
+        Pending,
+        PaidSuccess,
+        Cancelled,
+        Unknown
     }
 
-    // --- PHẦN CHÍNH: CODE MẪU ADAPTER (Copy vào báo cáo) ---
-
-    // 3. Giao diện Adapter
-    public interface IPaymentAdapter
+    /// <summary>
+    /// DESIGN PATTERN: ADAPTER (Bộ chuyển đổi)
+    /// - Ứng dụng tại: PaymentController.cs
+    /// - Luồng hoạt động: API của bên thứ 3 (PayOS) trả về các mã code (00) hoặc chuỗi trạng thái ("CANCELLED").
+    ///   Adapter sẽ chuyển đổi các mã "ngoại lai" này thành Enum chuẩn nội bộ (InternalOrderStatus).
+    /// </summary>
+    public class PayOSAdapter
     {
-        InternalOrderStatus ConvertStatus(PayOSWebhookData payOSData);
-    }
-
-    // 4. Lớp Adapter thực hiện chuyển đổi
-    public class PayOSAdapter : IPaymentAdapter
-    {
-        public InternalOrderStatus ConvertStatus(PayOSWebhookData payOSData)
+        // Chuyển đổi mã trạng thái PayOS sang chuẩn nội bộ
+        public static InternalOrderStatus ConvertExternalStatusToInternal(string payOsStatus, string payOsCode)
         {
-            if (payOSData == null || string.IsNullOrEmpty(payOSData.status))
-            {
-                return InternalOrderStatus.Unknown;
-            }
+            // Nếu PayOS trả về mã "00" tức là giao dịch thành công
+            if (payOsCode == "00") return InternalOrderStatus.PaidSuccess;
 
-            // Chuyển đổi từ String (PayOS) sang Enum/Int (Database)
-            // Sử dụng Switch Expression của C# mới nhất
-            return payOSData.status.ToUpper() switch
+            if (string.IsNullOrEmpty(payOsStatus)) return InternalOrderStatus.Unknown;
+
+            return payOsStatus.ToUpper() switch
             {
-                "PAID" => InternalOrderStatus.Paid,           // Map "PAID" -> 1
-                "PENDING" => InternalOrderStatus.Pending,     // Map "PENDING" -> 0
-                "PROCESSING" => InternalOrderStatus.Pending,
-                "CANCELLED" => InternalOrderStatus.Failed,    // Map "CANCELLED" -> -1
+                "PAID" => InternalOrderStatus.PaidSuccess,
+                "CANCELLED" => InternalOrderStatus.Cancelled,
+                "PENDING" => InternalOrderStatus.Pending,
                 _ => InternalOrderStatus.Unknown
             };
         }
