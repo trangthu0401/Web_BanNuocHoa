@@ -38,6 +38,13 @@ namespace PerfumeStore.Controllers
                 .OrderByDescending(w => w.StartDate)
                 .ToListAsync();
 
+            // ==========================================
+            // ÁP DỤNG STATE PATTERN: 
+            // Lấy tên trạng thái từ Class chuẩn thay vì gõ chuỗi cứng "Chờ xử lý", "Đang xử lý"
+            // ==========================================
+            string pendingState = new PerfumeStore.DesignPatterns.State.PendingState().StateName;
+            string processingState = new PerfumeStore.DesignPatterns.State.ProcessingState().StateName;
+
             // Lấy thông tin OrderDetail để hiển thị tên sản phẩm
             var warrantyList = new List<object>();
             foreach (var warranty in warranties)
@@ -54,7 +61,8 @@ namespace PerfumeStore.Controllers
                     StartDate = warranty.StartDate,
                     EndDate = warranty.EndDate,
                     Status = warranty.Status,
-                    HasActiveClaim = warranty.WarrantyClaims.Any(c => c.Status == "Chờ xử lý" || c.Status == "Đang xử lý")
+                    // Dùng biến State chuẩn để kiểm tra
+                    HasActiveClaim = warranty.WarrantyClaims.Any(c => c.Status == pendingState || c.Status == processingState)
                 });
             }
 
@@ -74,7 +82,7 @@ namespace PerfumeStore.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(int warrantyId, string issueType, string issueDescription)
         {
-            var customerIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var customerIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrWhiteSpace(customerIdClaim) || !int.TryParse(customerIdClaim, out var customerId))
             {
                 TempData["AlertMessage"] = "Không xác định được tài khoản.";
@@ -101,10 +109,16 @@ namespace PerfumeStore.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            // ==========================================
+            // ÁP DỤNG STATE PATTERN: Lấy chuẩn trạng thái
+            // ==========================================
+            string pendingState = new PerfumeStore.DesignPatterns.State.PendingState().StateName;
+            string processingState = new PerfumeStore.DesignPatterns.State.ProcessingState().StateName;
+
             // Kiểm tra đã có yêu cầu đang chờ xử lý chưa
             var existingClaim = await _db.WarrantyClaims
-                .FirstOrDefaultAsync(c => c.WarrantyId == warrantyId && 
-                    (c.Status == "Chờ xử lý" || c.Status == "Đang xử lý"));
+                .FirstOrDefaultAsync(c => c.WarrantyId == warrantyId &&
+                    (c.Status == pendingState || c.Status == processingState));
 
             if (existingClaim != null)
             {
@@ -138,9 +152,20 @@ namespace PerfumeStore.Controllers
                 ClaimCode = claimCode,
                 IssueType = issueType,
                 IssueDescription = issueDescription.Trim(),
-                Status = "Chờ xử lý",
                 SubmittedDate = DateTime.Now
             };
+
+            // ==========================================
+            // ÁP DỤNG STATE PATTERN: Khởi tạo trạng thái gốc
+            // ==========================================
+            // Khởi tạo Context với chuỗi mặc định
+            var warrantyContext = new PerfumeStore.DesignPatterns.State.WarrantyContext("Chờ xử lý");
+
+            // Set trạng thái chuẩn là Pending
+            warrantyContext.SetState(new PerfumeStore.DesignPatterns.State.PendingState());
+
+            // Lấy chuỗi trạng thái chuẩn từ Pattern để gán vào Entity
+            warrantyClaim.Status = warrantyContext.GetStatusString();
 
             _db.WarrantyClaims.Add(warrantyClaim);
             await _db.SaveChangesAsync();

@@ -42,7 +42,7 @@ namespace PerfumeStore.Models
             if (!optionsBuilder.IsConfigured)
             {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-                optionsBuilder.UseSqlServer("Server=DESKTOP-DPSMVOG;Database=PerfumeStore Ver.2 (1);User Id=SA;Password=@Password123;TrustServerCertificate=True;");
+                optionsBuilder.UseSqlServer("Server=LAPTOP-CBFPI0HF;Database=PerfumeStore;Trusted_Connection=True;TrustServerCertificate=True;Command Timeout=300;");
             }
         }
 
@@ -63,7 +63,7 @@ namespace PerfumeStore.Models
                 entity.HasOne(d => d.Role)
                     .WithMany(p => p.Admins)
                     .HasForeignKey(d => d.RoleId)
-                    .HasConstraintName("FK__Admins__RoleID__778AC167");
+                    .HasConstraintName("FK__Admins__RoleID__797309D9");
             });
 
             modelBuilder.Entity<Brand>(entity =>
@@ -85,7 +85,7 @@ namespace PerfumeStore.Models
             modelBuilder.Entity<Comment>(entity =>
             {
                 entity.HasKey(e => new { e.ProductId, e.CustomerId })
-                    .HasName("PK__Comments__2E4620A6CAB8E721");
+                    .HasName("PK__Comments__2E4620A6A1172DDA");
 
                 entity.Property(e => e.ProductId).HasColumnName("ProductID");
 
@@ -103,13 +103,13 @@ namespace PerfumeStore.Models
                     .WithMany(p => p.Comments)
                     .HasForeignKey(d => d.CustomerId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__Comments__Custom__797309D9");
+                    .HasConstraintName("FK__Comments__Custom__7B5B524B");
 
                 entity.HasOne(d => d.Product)
                     .WithMany(p => p.Comments)
                     .HasForeignKey(d => d.ProductId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__Comments__Produc__787EE5A0");
+                    .HasConstraintName("FK__Comments__Produc__7A672E12");
             });
 
             modelBuilder.Entity<Coupon>(entity =>
@@ -136,7 +136,7 @@ namespace PerfumeStore.Models
                 entity.HasOne(d => d.Customer)
                     .WithMany(p => p.Coupons)
                     .HasForeignKey(d => d.CustomerId)
-                    .HasConstraintName("FK__Coupons__Custome__1F98B2C1");
+                    .HasConstraintName("FK__Coupons__Custome__7C4F7684");
             });
 
             modelBuilder.Entity<Customer>(entity =>
@@ -165,17 +165,17 @@ namespace PerfumeStore.Models
                 entity.HasOne(d => d.Membership)
                     .WithMany(p => p.Customers)
                     .HasForeignKey(d => d.MembershipId)
-                    .HasConstraintName("FK__Customers__Membe__7A672E12");
+                    .HasConstraintName("FK__Customers__Membe__7D439ABD");
 
                 entity.HasMany(d => d.Products)
                     .WithMany(p => p.Customers)
                     .UsingEntity<Dictionary<string, object>>(
                         "Favorite",
-                        l => l.HasOne<Product>().WithMany().HasForeignKey("ProductId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__Favorites__Produ__2739D489"),
-                        r => r.HasOne<Customer>().WithMany().HasForeignKey("CustomerId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__Favorites__Custo__2645B050"),
+                        l => l.HasOne<Product>().WithMany().HasForeignKey("ProductId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__Favorites__Produ__02FC7413"),
+                        r => r.HasOne<Customer>().WithMany().HasForeignKey("CustomerId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__Favorites__Custo__02084FDA"),
                         j =>
                         {
-                            j.HasKey("CustomerId", "ProductId").HasName("PK__Favorite__6FEEA8D625140F36");
+                            j.HasKey("CustomerId", "ProductId").HasName("PK__Favorite__6FEEA8D61DCA0FA7");
 
                             j.ToTable("Favorites");
 
@@ -188,7 +188,7 @@ namespace PerfumeStore.Models
             modelBuilder.Entity<DiscountProgram>(entity =>
             {
                 entity.HasKey(e => e.DiscountId)
-                    .HasName("PK__Discount__E43F6DF6E8E485F9");
+                    .HasName("PK__Discount__E43F6DF61B9E16E0");
 
                 entity.Property(e => e.DiscountId).HasColumnName("DiscountID");
 
@@ -258,18 +258,18 @@ namespace PerfumeStore.Models
                     .WithMany(p => p.Orders)
                     .HasForeignKey(d => d.AddressId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__Orders__AddressI__02FC7413");
+                    .HasConstraintName("FK__Orders__AddressI__07C12930");
 
                 entity.HasOne(d => d.Coupon)
                     .WithMany(p => p.Orders)
                     .HasForeignKey(d => d.CouponId)
-                    .HasConstraintName("FK__Orders__CouponID__02084FDA");
+                    .HasConstraintName("FK__Orders__CouponID__06CD04F7");
 
                 entity.HasOne(d => d.Customer)
                     .WithMany(p => p.Orders)
                     .HasForeignKey(d => d.CustomerId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__Orders__Customer__01142BA1");
+                    .HasConstraintName("FK__Orders__Customer__05D8E0BE");
             });
 
             modelBuilder.Entity<OrderDetail>(entity =>
@@ -288,13 +288,13 @@ namespace PerfumeStore.Models
                     .WithMany(p => p.OrderDetails)
                     .HasForeignKey(d => d.OrderId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__OrderDeta__Order__7F2BE32F");
+                    .HasConstraintName("FK__OrderDeta__Order__04E4BC85");
 
                 entity.HasOne(d => d.Product)
                     .WithMany(p => p.OrderDetails)
                     .HasForeignKey(d => d.ProductId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__OrderDeta__Produ__00200768");
+                    .HasConstraintName("FK__OrderDeta__Produ__03F0984C");
             });
 
             modelBuilder.Entity<PendingRegistration>(entity =>
@@ -337,8 +337,6 @@ namespace PerfumeStore.Models
             {
                 entity.Property(e => e.ProductId).HasColumnName("ProductID");
 
-                entity.Property(e => e.BaseNote).HasMaxLength(100);
-
                 entity.Property(e => e.BrandId).HasColumnName("BrandID");
 
                 entity.Property(e => e.Concentration)
@@ -348,17 +346,13 @@ namespace PerfumeStore.Models
 
                 entity.Property(e => e.Craftsman).HasMaxLength(100);
 
-                entity.Property(e => e.DescriptionNo1)
-                    .HasMaxLength(500)
-                    .HasColumnName("DescriptionNO1");
+                entity.Property(e => e.DescriptionNo1).HasColumnName("DescriptionNO1");
 
                 entity.Property(e => e.DescriptionNo2).HasColumnName("DescriptionNO2");
 
                 entity.Property(e => e.DiscountId).HasColumnName("DiscountID");
 
                 entity.Property(e => e.DiscountPrice).HasColumnType("decimal(18, 2)");
-
-                entity.Property(e => e.HeartNote).HasMaxLength(100);
 
                 entity.Property(e => e.Introduction).HasMaxLength(150);
 
@@ -374,34 +368,28 @@ namespace PerfumeStore.Models
 
                 entity.Property(e => e.Scent).HasMaxLength(100);
 
-                entity.Property(e => e.Style).HasMaxLength(250);
-
                 entity.Property(e => e.SuggestionName).HasMaxLength(50);
-
-                entity.Property(e => e.TopNote).HasMaxLength(100);
-
-                entity.Property(e => e.UsingOccasion).HasMaxLength(250);
 
                 entity.HasOne(d => d.Brand)
                     .WithMany(p => p.Products)
                     .HasForeignKey(d => d.BrandId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__Products__BrandI__04E4BC85");
+                    .HasConstraintName("FK__Products__BrandI__09A971A2");
 
                 entity.HasOne(d => d.Discount)
                     .WithMany(p => p.Products)
                     .HasForeignKey(d => d.DiscountId)
-                    .HasConstraintName("FK__Products__Discou__05D8E0BE");
+                    .HasConstraintName("FK__Products__Discou__0A9D95DB");
 
                 entity.HasMany(d => d.Categories)
                     .WithMany(p => p.Products)
                     .UsingEntity<Dictionary<string, object>>(
                         "EqualCategory",
-                        l => l.HasOne<Category>().WithMany().HasForeignKey("CategoryId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__EqualCate__Categ__7C4F7684"),
-                        r => r.HasOne<Product>().WithMany().HasForeignKey("ProductId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__EqualCate__Produ__7B5B524B"),
+                        l => l.HasOne<Category>().WithMany().HasForeignKey("CategoryId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__EqualCate__Categ__7F2BE32F"),
+                        r => r.HasOne<Product>().WithMany().HasForeignKey("ProductId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__EqualCate__Produ__7E37BEF6"),
                         j =>
                         {
-                            j.HasKey("ProductId", "CategoryId").HasName("PK__EqualCat__159C554FDAB6BACF");
+                            j.HasKey("ProductId", "CategoryId").HasName("PK__EqualCat__159C554F3B31A6DD");
 
                             j.ToTable("EqualCategory");
 
@@ -414,11 +402,11 @@ namespace PerfumeStore.Models
                     .WithMany(p => p.Products)
                     .UsingEntity<Dictionary<string, object>>(
                         "EqualLiter",
-                        l => l.HasOne<Liter>().WithMany().HasForeignKey("LiterId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__EqualLite__Liter__7E37BEF6"),
-                        r => r.HasOne<Product>().WithMany().HasForeignKey("ProductId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__EqualLite__Produ__7D439ABD"),
+                        l => l.HasOne<Liter>().WithMany().HasForeignKey("LiterId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__EqualLite__Liter__01142BA1"),
+                        r => r.HasOne<Product>().WithMany().HasForeignKey("ProductId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__EqualLite__Produ__00200768"),
                         j =>
                         {
-                            j.HasKey("ProductId", "LiterId").HasName("PK__EqualLit__17F01CA7018BA2F5");
+                            j.HasKey("ProductId", "LiterId").HasName("PK__EqualLit__17F01CA76064FA67");
 
                             j.ToTable("EqualLiter");
 
@@ -431,7 +419,7 @@ namespace PerfumeStore.Models
             modelBuilder.Entity<ProductImage>(entity =>
             {
                 entity.HasKey(e => e.ImageId)
-                    .HasName("PK__ProductI__7516F4ECAEE457E7");
+                    .HasName("PK__ProductI__7516F4EC2A4E49FE");
 
                 entity.Property(e => e.ImageId).HasColumnName("ImageID");
 
@@ -443,7 +431,7 @@ namespace PerfumeStore.Models
                     .WithMany(p => p.ProductImages)
                     .HasForeignKey(d => d.ProductId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__ProductIm__Produ__03F0984C");
+                    .HasConstraintName("FK__ProductIm__Produ__08B54D69");
             });
 
             modelBuilder.Entity<Role>(entity =>
@@ -458,11 +446,11 @@ namespace PerfumeStore.Models
                     .WithMany(p => p.Roles)
                     .UsingEntity<Dictionary<string, object>>(
                         "RolePermission",
-                        l => l.HasOne<Permission>().WithMany().HasForeignKey("PermissionId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__RolePermi__Permi__07C12930"),
-                        r => r.HasOne<Role>().WithMany().HasForeignKey("RoleId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__RolePermi__RoleI__06CD04F7"),
+                        l => l.HasOne<Permission>().WithMany().HasForeignKey("PermissionId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__RolePermi__Permi__0C85DE4D"),
+                        r => r.HasOne<Role>().WithMany().HasForeignKey("RoleId").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK__RolePermi__RoleI__0B91BA14"),
                         j =>
                         {
-                            j.HasKey("RoleId", "PermissionId").HasName("PK__RolePerm__6400A188ABF38F56");
+                            j.HasKey("RoleId", "PermissionId").HasName("PK__RolePerm__6400A1888D4D20B4");
 
                             j.ToTable("RolePermissions");
 
@@ -473,7 +461,7 @@ namespace PerfumeStore.Models
             modelBuilder.Entity<ShippingAddress>(entity =>
             {
                 entity.HasKey(e => e.AddressId)
-                    .HasName("PK__Shipping__091C2A1B057C08D0");
+                    .HasName("PK__Shipping__091C2A1B5A175B67");
 
                 entity.Property(e => e.AddressId).HasColumnName("AddressID");
 
@@ -498,7 +486,7 @@ namespace PerfumeStore.Models
                     .WithMany(p => p.ShippingAddresses)
                     .HasForeignKey(d => d.CustomerId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__ShippingA__Custo__08B54D69");
+                    .HasConstraintName("FK__ShippingA__Custo__0D7A0286");
             });
 
             modelBuilder.Entity<Warranty>(entity =>
@@ -544,7 +532,7 @@ namespace PerfumeStore.Models
                     .WithMany(p => p.WarrantyClaims)
                     .HasForeignKey(d => d.WarrantyId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__WarrantyC__Warra__09A971A2");
+                    .HasConstraintName("FK__WarrantyC__Warra__0E6E26BF");
             });
 
             OnModelCreatingPartial(modelBuilder);

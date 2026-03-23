@@ -88,7 +88,24 @@ namespace PerfumeStore.Controllers
                 var customerId = GetCurrentCustomerId();
                 var remainingSpins = GetRemainingSpins(customerId);
 
-                // Kiểm tra số lần quay còn lại
+                // ==========================================
+                // ỨNG DỤNG SINGLETON PATTERN - CHỐNG SPAM
+                // ==========================================
+                // Tạo mã định danh: Nếu có CustomerId thì dùng nó, không thì dùng SessionId
+                string userIdentifier = customerId.HasValue ? $"USER_{customerId.Value}" : $"GUEST_{HttpContext.Session.Id}";
+
+                // Hỏi Singleton xem User này có đang spam quá 2 lần/phiên truy cập không (Trực tiếp từ RAM)
+                if (!PerfumeStore.DesignPatterns.Singleton.SpinWheelTrackerSingleton.Instance.CanSpin(userIdentifier))
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "🚨 Hệ thống bảo vệ: Bạn thao tác quá nhanh hoặc đã đạt giới hạn an toàn. Hãy thử lại sau!",
+                        remainingSpins = remainingSpins
+                    });
+                }
+
+                // Kiểm tra số lần quay hợp lệ trong logic cũ của DB/Session
                 if (remainingSpins <= 0)
                 {
                     return Json(new
@@ -98,6 +115,11 @@ namespace PerfumeStore.Controllers
                         remainingSpins = remainingSpins
                     });
                 }
+
+                // Ghi nhận 1 lần quay vào Singleton (RAM) để đếm
+                PerfumeStore.DesignPatterns.Singleton.SpinWheelTrackerSingleton.Instance.RecordSpin(userIdentifier);
+                // ==========================================
+
 
                 // Danh sách voucher có sẵn từ database
                 var vouchers = await GetAvailableCouponsAsync();
@@ -134,12 +156,7 @@ namespace PerfumeStore.Controllers
 
                     if (selectedVoucher == null)
                     {
-                        return Json(new
-                        {
-                            success = false,
-                            message = "🎟️ Các coupon vừa được nhận hết, vui lòng thử lại!",
-                            remainingSpins
-                        });
+                        return Json(new { success = false, message = "🎟️ Các coupon vừa được nhận hết, vui lòng thử lại!", remainingSpins });
                     }
                 }
                 else
@@ -147,20 +164,14 @@ namespace PerfumeStore.Controllers
                     selectedVoucher = SelectVoucherByProbability(vouchers, out selectedIndex);
                 }
 
-                // Giảm số lần quay
                 if (selectedVoucher == null)
                 {
-                    return Json(new
-                    {
-                        success = false,
-                        message = "Không thể xác định voucher, vui lòng thử lại!",
-                        remainingSpins
-                    });
+                    return Json(new { success = false, message = "Không thể xác định voucher, vui lòng thử lại!", remainingSpins });
                 }
 
+                // CẬP NHẬT DATABASE VÀ SESSION (Giữ nguyên logic gốc của bạn)
                 if (customerId.HasValue)
                 {
-                    // Đã đăng nhập - cập nhật database
                     var customer = await _context.Customers.FindAsync(customerId.Value);
                     if (customer != null)
                     {
@@ -170,26 +181,18 @@ namespace PerfumeStore.Controllers
                 }
                 else
                 {
-                    // Guest - cập nhật session
                     var guestSpins = HttpContext.Session.GetInt32("GuestSpins") ?? 3;
                     HttpContext.Session.SetInt32("GuestSpins", Math.Max(0, guestSpins - 1));
                 }
 
-                // Lưu voucher vào session nếu trúng
                 if (selectedVoucher.Type != "none")
                 {
                     HttpContext.Session.SetString("AppliedVoucher", JsonSerializer.Serialize(selectedVoucher));
                 }
 
-                // Tính góc quay với animation mượt mà
                 var finalAngle = CalculateSpinAngle(selectedIndex, vouchers.Count);
-
                 var newRemainingSpins = GetRemainingSpins(customerId);
                 var updatedVouchers = await GetAvailableCouponsAsync();
-
-                _logger.LogInformation($"Spin completed for customer {customerId}: {selectedVoucher.Name}");
-
-                _logger.LogInformation($"Selected voucher: {selectedVoucher.Name} ({selectedVoucher.Code})");
 
                 return Json(new
                 {
@@ -205,11 +208,7 @@ namespace PerfumeStore.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in Spin action");
-                return Json(new
-                {
-                    success = false,
-                    message = "Có lỗi xảy ra, vui lòng thử lại!"
-                });
+                return Json(new { success = false, message = "Có lỗi xảy ra, vui lòng thử lại!" });
             }
         }
 

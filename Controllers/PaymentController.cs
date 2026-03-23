@@ -37,35 +37,45 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet("/cancel-payment")]
-        
+
         ///     Callback khi người dùng hoặc PayOS báo hủy giao dịch.
         ///     Cập nhật trạng thái đơn sang “Đã hủy” và hướng dẫn khách thử lại.
-        
-        public async Task<IActionResult> CancelPayment()
+
+        public async Task<IActionResult> CancelPayment([FromQuery] string status, [FromQuery] string code)
         {
             try
             {
+                // ==========================================
+                // ÁP DỤNG ADAPTER PATTERN: Dịch trạng thái từ PayOS sang chuẩn nội bộ
+                // ==========================================
+                var internalStatus = PerfumeStore.DesignPatterns.Adapter.PayOSAdapter.ConvertExternalStatusToInternal(status, code);
+
                 // Lấy thông tin đơn hàng từ session
                 var orderIdStr = HttpContext.Session.GetString("PENDING_ORDER_ID");
-                
+
                 if (!string.IsNullOrEmpty(orderIdStr) && int.TryParse(orderIdStr, out int orderId))
                 {
-                    // Cập nhật trạng thái đơn hàng thành "Đã hủy"
-                    var order = await _context.Orders.FindAsync(orderId);
-                    if (order != null)
+                    // Chỉ tiến hành hủy đơn khi Adapter xác nhận trạng thái trả về đúng là Cancelled hoặc Unknown
+                    if (internalStatus == PerfumeStore.DesignPatterns.Adapter.InternalOrderStatus.Cancelled ||
+                        internalStatus == PerfumeStore.DesignPatterns.Adapter.InternalOrderStatus.Unknown)
                     {
-                        order.Status = "Đã hủy";
-                        order.PaymentMethod = "Chuyển khoản ngân hàng (Đã hủy)";
-                        await _context.SaveChangesAsync();
-                        
-                        ViewBag.OrderId = orderId;
+                        // Cập nhật trạng thái đơn hàng thành "Đã hủy"
+                        var order = await _context.Orders.FindAsync(orderId);
+                        if (order != null)
+                        {
+                            order.Status = "Đã hủy";
+                            order.PaymentMethod = "Chuyển khoản ngân hàng (Đã hủy)";
+                            await _context.SaveChangesAsync();
+
+                            ViewBag.OrderId = orderId;
+                        }
+
+                        // Xóa session
+                        HttpContext.Session.Remove("PENDING_ORDER_ID");
+                        HttpContext.Session.Remove("PENDING_ORDER_AMOUNT");
                     }
-                    
-                    // Xóa session
-                    HttpContext.Session.Remove("PENDING_ORDER_ID");
-                    HttpContext.Session.Remove("PENDING_ORDER_AMOUNT");
                 }
-                
+
                 return View();
             }
             catch (Exception ex)
@@ -76,25 +86,39 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet("/payment-success")]
-        
+
         ///     Callback thành công từ PayOS.
         ///     Xác thực orderId trong session, cập nhật trạng thái “Đã thanh toán” và hiển thị lại thông tin đơn hàng.
-        
-        public async Task<IActionResult> PaymentSuccess()
+
+        public async Task<IActionResult> PaymentSuccess([FromQuery] string status, [FromQuery] string code)
         {
             try
             {
+                // ==========================================
+                // ÁP DỤNG ADAPTER PATTERN
+                // ==========================================
+                var internalStatus = PerfumeStore.DesignPatterns.Adapter.PayOSAdapter.ConvertExternalStatusToInternal(status, code);
+
+                // BẢO VỆ LUỒNG: Nếu URL trả về báo lỗi, dù khách ráng truy cập trang success cũng sẽ bị chặn lại
+                if (internalStatus != PerfumeStore.DesignPatterns.Adapter.InternalOrderStatus.PaidSuccess)
+                {
+                    _logger.LogWarning($"Payment attempt failed. PayOS Status: {status}, Code: {code}");
+                    TempData["Error"] = "Thanh toán chưa hoàn tất hoặc đã bị hủy. Vui lòng kiểm tra lại.";
+                    return RedirectToAction("Index", "Cart");
+                }
+                // ==========================================
+
                 // BẢO MẬT: Luôn ưu tiên sử dụng orderId từ session (PENDING_ORDER_ID)
                 // Đây là cách duy nhất để đảm bảo người dùng chỉ có thể xem đơn hàng của chính họ
                 var orderIdStr = HttpContext.Session.GetString("PENDING_ORDER_ID");
-                
+
                 if (string.IsNullOrEmpty(orderIdStr) || !int.TryParse(orderIdStr, out int orderId))
                 {
                     _logger.LogWarning($"PaymentSuccess: No valid order ID found in session. IP: {Request.HttpContext.Connection.RemoteIpAddress}");
                     TempData["Error"] = "Không tìm thấy thông tin đơn hàng. Vui lòng đặt hàng lại.";
                     return RedirectToAction("Index", "Cart");
                 }
-                
+
                 // Kiểm tra xem PayOS có gửi orderCode trong query string không
                 var payOSOrderCode = Request.Query["orderCode"].ToString();
                 if (!string.IsNullOrEmpty(payOSOrderCode) && int.TryParse(payOSOrderCode, out int payOSOrderId))
@@ -108,9 +132,9 @@ namespace PerfumeStore.Controllers
                     }
                     _logger.LogInformation($"PaymentSuccess: Received orderCode from PayOS: {payOSOrderId} (validated against session)");
                 }
-                
+
                 _logger.LogInformation($"PaymentSuccess: Processing order ID: {orderId}");
-                
+
                 // Lấy đơn hàng từ database với tất cả thông tin cần thiết
                 var order = await _context.Orders
                     .Include(o => o.Customer)
@@ -120,14 +144,14 @@ namespace PerfumeStore.Controllers
                         .ThenInclude(od => od.Product)
                             .ThenInclude(p => p.ProductImages)
                     .FirstOrDefaultAsync(o => o.OrderId == orderId);
-                
+
                 if (order == null)
                 {
                     _logger.LogWarning($"PaymentSuccess: Order {orderId} not found in database");
                     TempData["Error"] = "Không tìm thấy đơn hàng trong hệ thống";
                     return RedirectToAction("Index", "Cart");
                 }
-                
+
                 // Kiểm tra xem đơn hàng đã được thanh toán chưa (tránh cập nhật 2 lần)
                 if (order.Status == "Đã thanh toán")
                 {
@@ -139,7 +163,7 @@ namespace PerfumeStore.Controllers
                     _logger.LogInformation($"PaymentSuccess: Updating order {orderId} status to 'Đã thanh toán'");
                     order.Status = "Đã thanh toán";
                     order.PaymentMethod = "Chuyển khoản ngân hàng";
-                    
+
                     // Đánh dấu coupon đã sử dụng nếu có
                     if (order.CouponId.HasValue)
                     {
@@ -151,7 +175,7 @@ namespace PerfumeStore.Controllers
                             _logger.LogInformation($"PaymentSuccess: Marked coupon {coupon.Code} as used for order {orderId}");
                         }
                     }
-                    
+
                     // Lưu đơn hàng vào database - ĐẢM BẢO LƯU THÀNH CÔNG TRƯỚC KHI TIẾP TỤC
                     try
                     {
@@ -165,7 +189,7 @@ namespace PerfumeStore.Controllers
                         return RedirectToAction("Index", "Cart");
                     }
                 }
-                
+
                 // Đảm bảo tất cả OrderDetails đã được lưu
                 if (order.OrderDetails == null || !order.OrderDetails.Any())
                 {
@@ -173,7 +197,7 @@ namespace PerfumeStore.Controllers
                     TempData["Error"] = "Đơn hàng không có chi tiết sản phẩm";
                     return RedirectToAction("Index", "Cart");
                 }
-                
+
                 // Kiểm tra lại từ database một lần nữa để đảm bảo dữ liệu đã được lưu
                 var verifiedOrder = await _context.Orders
                     .Include(o => o.Customer)
@@ -183,26 +207,26 @@ namespace PerfumeStore.Controllers
                         .ThenInclude(od => od.Product)
                             .ThenInclude(p => p.ProductImages)
                     .FirstOrDefaultAsync(o => o.OrderId == orderId);
-                
+
                 if (verifiedOrder == null || verifiedOrder.Status != "Đã thanh toán")
                 {
                     _logger.LogError($"PaymentSuccess: Verification failed for order {orderId}");
                     TempData["Error"] = "Xác thực đơn hàng không thành công";
                     return RedirectToAction("Index", "Cart");
                 }
-                
+
                 _logger.LogInformation($"PaymentSuccess: Order {orderId} verified successfully in database");
-                
+
                 // Bảo hành sẽ được tạo tự động khi admin set đơn hàng ở trạng thái "Đã giao hàng"
                 // Không tạo bảo hành ở đây nữa
-                
+
                 // Xóa giỏ hàng chỉ sau khi đã lưu đơn hàng thành công
                 HttpContext.Session.Remove("CART_SESSION");
                 HttpContext.Session.Remove("AppliedVoucher");
-                
+
                 // Tính toán lại các khoản phí từ OrderDetails và Coupon
                 var subtotal = verifiedOrder.OrderDetails.Sum(od => od.TotalPrice);
-                
+
                 // Tính VAT từ database
                 var vatFee = await _context.Fees.FirstOrDefaultAsync(f => f.Name == "VAT");
                 decimal vat = 0m;
@@ -265,18 +289,18 @@ namespace PerfumeStore.Controllers
                         Quantity = od.Quantity,
                         UnitPrice = od.UnitPrice,
                         TotalPrice = od.TotalPrice,
-                        ImageUrl = od.Product.ProductImages?.FirstOrDefault()?.ImageData != null 
+                        ImageUrl = od.Product.ProductImages?.FirstOrDefault()?.ImageData != null
                             ? $"data:{od.Product.ProductImages.First().ImageMimeType};base64,{Convert.ToBase64String(od.Product.ProductImages.First().ImageData)}"
                             : "/images/ProductSummary/chanel-bleu-de-chanel-edp-100-ml.webp"
                     }).ToList()
                 };
-                
+
                 // Xóa session chỉ sau khi đã xác thực và lưu thành công
                 HttpContext.Session.Remove("PENDING_ORDER_ID");
                 HttpContext.Session.Remove("PENDING_ORDER_AMOUNT");
-                
+
                 _logger.LogInformation($"PaymentSuccess: Returning success page for order {orderId}");
-                
+
                 return View(orderViewModel);
             }
             catch (Exception ex)
