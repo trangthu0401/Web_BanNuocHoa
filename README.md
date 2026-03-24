@@ -10,12 +10,12 @@ dotnet add package Microsoft.EntityFrameworkCore.SqlServer --version 6.0.21
 dotnet add package Microsoft.EntityFrameworkCore.Tools
 dotnet add package Microsoft.EntityFrameworkCore.Design --version 6.0.21
 
-dotnet ef dbcontext scaffold "Server=MSI\SERVER1;Database=PerfumeStore;User Id=SA;Password=@Password123;TrustServerCertificate=True;" Microsoft.EntityFrameworkCore.SqlServer -o Models --force
+dotnet ef dbcontext scaffold "Server=MSI\SERVER1;Database=PerfumeStore;User Id=SA;Password=123;TrustServerCertificate=True;" Microsoft.EntityFrameworkCore.SqlServer -o Models --force
 ```
 
 *** Tương tự áp dụng cho Area (phần Admin)
 ```
-dotnet ef dbcontext scaffold "Server=MSI,1433;Database=PerfumeStore;User Id=SA;Password=@Password123;TrustServerCertificate=True;" Microsoft.EntityFrameworkCore.SqlServer -o Areas/Admin/Models --force
+dotnet ef dbcontext scaffold "Server=MSI,1433;Database=PerfumeStore;User Id=SA;Password=123;TrustServerCertificate=True;" Microsoft.EntityFrameworkCore.SqlServer -o Areas/Admin/Models --force
 ```
 
 ## Tạo migration
