@@ -676,6 +676,21 @@ namespace PerfumeStore.Controllers
                 // Che giấu toàn bộ logic phức tạp chọc xuống DB
                 var order = await _checkoutFacade.PlaceOrderAsync(model, customerEmail, cart, appliedVoucher, total);
 
+                // ======================================================================
+                // ÁP DỤNG OBSERVER PATTERN: KÍCH HOẠT CHUỖI SỰ KIỆN GỬI EMAIL VÀ GHI LOG
+                // ======================================================================
+                // Khởi tạo Subject (Chủ thể - Đơn hàng)
+                var orderSubject = new PerfumeStore.DesignPatterns.Observer.OrderSubject();
+
+                // Đăng ký (Attach) các dịch vụ phụ trợ vào luồng theo dõi đơn hàng
+                orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.EmailObserver());
+                orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.LoggerObserver());
+
+                // Chỉ với 1 câu lệnh cập nhật trạng thái, tất cả các Observer sẽ đồng loạt chạy
+                // Không làm phình to code của Controller chính.
+                orderSubject.ChangeStatus($"Đơn hàng #{order.OrderId} trị giá {order.TotalAmount:N0}đ của {model.CustomerName} đã được tạo!");
+                // ======================================================================
+
                 // Lưu thông tin đơn ra Session để hiển thị ở view
                 var orderInfo = new { OrderId = order.OrderId.ToString(), OrderDate = order.OrderDate, Items = cart.ToList(), Total = order.TotalAmount };
                 HttpContext.Session.SetString("LAST_ORDER", System.Text.Json.JsonSerializer.Serialize(orderInfo));
