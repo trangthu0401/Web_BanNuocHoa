@@ -1,58 +1,63 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using PerfumeStore.Models;
 
 namespace PerfumeStore.DesignPatterns.Observer
 {
-    // 1. Giao diện người quan sát (Observer)
-    public interface IObserver
+    // 1. Interface Người quan sát
+    public interface IOrderObserver
     {
-        void Update(string message);
+        void Update(Order order);
     }
 
-    // 2. Chủ thể (Subject) - Quản lý danh sách người nhận tin
+    // 2. Subject: Chủ thể (Nơi phát ra thông báo)
     public class OrderSubject
     {
-        private List<IObserver> _observers = new List<IObserver>();
-        public string OrderStatus { get; private set; }
+        private List<IOrderObserver> _observers = new List<IOrderObserver>();
 
-        // Đăng ký nhận thông báo
-        public void Attach(IObserver observer) => _observers.Add(observer);
+        // Đăng ký dịch vụ vào danh sách chờ
+        public void Attach(IOrderObserver observer) => _observers.Add(observer);
 
-        // Hủy đăng ký
-        public void Detach(IObserver observer) => _observers.Remove(observer);
-
-        // Gửi thông báo đến tất cả Observer
-        public void Notify()
+        // Phát thông báo cho tất cả các dịch vụ trong danh sách
+        public void Notify(Order order)
         {
             foreach (var observer in _observers)
             {
-                observer.Update($"Đơn hàng cập nhật: {OrderStatus}");
+                observer.Update(order);
             }
         }
+    }
 
-        // Logic nghiệp vụ: Đổi trạng thái -> Tự động báo
-        public void ChangeStatus(string newStatus)
+    // --- 3. CÁC OBSERVER CỤ THỂ ---
+
+    // 3.1. Observer Gửi Email xác nhận
+    public class EmailObserver : IOrderObserver
+    {
+        public void Update(Order order)
         {
-            OrderStatus = newStatus;
-            Notify();
+            // Giả lập gửi mail qua EmailService của bạn
+            Console.WriteLine($"[EmailService] Đơn hàng #{order.OrderId} thành công. Đã gửi mail xác nhận tới khách hàng.");
         }
     }
 
-    // 3. Observer gửi Email
-    public class EmailObserver : IObserver
+    // 3.2. Observer Cập nhật Tồn kho
+    public class InventoryObserver : IOrderObserver
     {
-        public void Update(string message)
+        public void Update(Order order)
         {
-            Console.WriteLine($"[Email Service]: Đã gửi thông báo '{message}' tới khách hàng.");
+            // Logic: Duyệt đơn hàng và trừ số lượng sản phẩm trong kho
+            Console.WriteLine($"[InventoryService] Đã xác nhận trừ kho cho các sản phẩm trong đơn #{order.OrderId}.");
         }
     }
 
-    // 4. Observer ghi Log hệ thống
-    public class LoggerObserver : IObserver
+    // 3.3. Observer Tích điểm thành viên
+    public class MembershipObserver : IOrderObserver
     {
-        public void Update(string message)
+        public void Update(Order order)
         {
-            Console.WriteLine($"[System Log]: Ghi nhận sự kiện '{message}'.");
+            // Công thức: 100.000đ = 1 điểm
+            decimal points = (order.TotalAmount ?? 0) / 100000;
+            Console.WriteLine($"[MembershipService] Khách hàng ID {order.CustomerId} được cộng {(int)points} điểm thưởng.");
         }
     }
 }

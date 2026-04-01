@@ -9,6 +9,10 @@ namespace PerfumeStore.Models
         public int Quantity { get; set; } = 1;
         public decimal UnitPrice { get; set; }
         public bool IsFavorite { get; set; }
+        
+        // Decorator flags
+        public bool HasGiftWrap { get; set; }
+        public bool HasEngraveName { get; set; }
 
         public decimal LineTotal => UnitPrice * Quantity;
     }

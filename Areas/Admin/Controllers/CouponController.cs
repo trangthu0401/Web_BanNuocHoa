@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using PerfumeStore.Areas.Admin.Models;
@@ -182,6 +182,28 @@ namespace PerfumeStore.Areas.Admin.Controllers
             await _context.SaveChangesAsync();
             TempData["SuccessMessage"] = "Xóa coupon thành công!";
 
+            return RedirectToAction(nameof(Index));
+        }
+
+        // POST: Admin/Coupon/Duplicate/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Duplicate(int id)
+        {
+            var originalCoupon = await _context.Coupons.FirstOrDefaultAsync(c => c.CouponId == id);
+            if (originalCoupon == null) return NotFound();
+
+            // --- ÁP DỤNG MẪU PROTOTYPE TẠI ĐÂY ---
+            // Gọi hàm nhân bản từ đối tượng gốc
+            var clonedCoupon = originalCoupon.DuplicateForNewSeason();
+            
+            // System sẽ tự sinh mã mới để đảm bảo valid và tránh trùng lặp
+            clonedCoupon.Code = await GenerateUniqueCodeAsync();
+
+            _context.Coupons.Add(clonedCoupon);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Nhân bản coupon thành công!";
             return RedirectToAction(nameof(Index));
         }
 
