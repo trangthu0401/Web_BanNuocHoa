@@ -1,85 +1,63 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using PerfumeStore.Models;
 
 namespace PerfumeStore.DesignPatterns.Observer
 {
-    /// <summary>
-    /// =========================================================================
-    /// DESIGN PATTERN: OBSERVER (MẪU QUAN SÁT / XUẤT BẢN - ĐĂNG KÝ)
-    /// =========================================================================
-    /// - Ứng dụng tại: CartController (Hàm ProcessCheckout - Sau khi lưu đơn hàng thành công).
-    /// - Luồng hoạt động: Khi đơn hàng được tạo (Subject thay đổi trạng thái), nó sẽ tự động 
-    ///   "hét lên" (Notify) cho tất cả các dịch vụ đang quan tâm (Email, Logger...) biết để tự xử lý công việc của mình.
-    /// 
-    /// ⚠️ LƯU Ý SƯ PHẠM 1 (TẠI SAO KHÔNG ĐĂNG KÝ VÀO PROGRAM.CS?):
-    /// - Mẫu này được thiết kế theo chuẩn Classic GoF (Gang of Four) sử dụng cơ chế Dynamic Subscription 
-    ///   (Đăng ký động tại thời điểm chạy bằng lệnh Attach/Detach).
-    /// - GIẢI THÍCH: Trong thực tế, có đơn hàng cần gửi Email, có đơn không cần. Việc khởi tạo động (dùng từ khóa `new`)
-    ///   và `Attach()` trực tiếp trong Controller giúp hệ thống cực kỳ linh hoạt, thay vì tiêm cứng qua Dependency Injection (DI).
-    ///
-    /// ⚠️ LƯU Ý SƯ PHẠM 2 (LỢI ÍCH KIẾN TRÚC - OPEN/CLOSED PRINCIPLE):
-    /// - Mẫu này giúp CartController được "giải phóng". Controller không cần quan tâm việc gửi Email diễn ra thế nào.
-    /// - Nếu sau này Sếp yêu cầu: "Cần gửi thêm tin nhắn Zalo khi có đơn mới". Ta chỉ cần tạo thêm class `ZaloObserver` 
-    ///   và `Attach()` nó vào, tuyệt đối không cần sửa đổi luồng code phức tạp bên trong CartController.
-    /// =========================================================================
-    /// </summary>
-
-    // 1. Giao diện người quan sát (Observer)
-    public interface IObserver
+    // 1. Interface Người quan sát
+    public interface IOrderObserver
     {
-        void Update(string message);
+        void Update(Order order);
     }
 
-    // 2. Chủ thể (Subject) - Quản lý danh sách các Observer đang theo dõi nó
+    // 2. Subject: Chủ thể (Nơi phát ra thông báo)
     public class OrderSubject
     {
-        private List<IObserver> _observers = new List<IObserver>();
-        public string OrderStatus { get; private set; }
+        private List<IOrderObserver> _observers = new List<IOrderObserver>();
 
-        // Đăng ký nhận thông báo (Subscribe)
-        public void Attach(IObserver observer) => _observers.Add(observer);
+        // Đăng ký dịch vụ vào danh sách chờ
+        public void Attach(IOrderObserver observer) => _observers.Add(observer);
 
-        // Hủy đăng ký nhận thông báo (Unsubscribe)
-        public void Detach(IObserver observer) => _observers.Remove(observer);
-
-        // Phát loa thông báo đến tất cả Observer đang đăng ký
-        public void Notify()
+        // Phát thông báo cho tất cả các dịch vụ trong danh sách
+        public void Notify(Order order)
         {
             foreach (var observer in _observers)
             {
-                observer.Update($"HỆ THỐNG THÔNG BÁO: {OrderStatus}");
+                observer.Update(order);
             }
         }
+    }
 
-        // Logic nghiệp vụ: Đổi trạng thái -> Tự động kích hoạt chuỗi gửi tin
-        public void ChangeStatus(string newStatus)
+    // --- 3. CÁC OBSERVER CỤ THỂ ---
+
+    // 3.1. Observer Gửi Email xác nhận
+    public class EmailObserver : IOrderObserver
+    {
+        public void Update(Order order)
         {
-            OrderStatus = newStatus;
-            Notify();
+            // Giả lập gửi mail qua EmailService của bạn
+            Console.WriteLine($"[EmailService] Đơn hàng #{order.OrderId} thành công. Đã gửi mail xác nhận tới khách hàng.");
         }
     }
 
-    // ==========================================
-    // CÁC OBSERVER CỤ THỂ SẼ NHẬN THÔNG BÁO
-    // ==========================================
-
-    // 3. Observer gửi Email
-    public class EmailObserver : IObserver
+    // 3.2. Observer Cập nhật Tồn kho
+    public class InventoryObserver : IOrderObserver
     {
-        public void Update(string message)
+        public void Update(Order order)
         {
-            // Trong dự án thực tế, chỗ này sẽ gọi _emailService.SendEmailAsync(...)
-            Console.WriteLine($"[Email Service Observer]: Đang xử lý gửi Email... '{message}'");
+            // Logic: Duyệt đơn hàng và trừ số lượng sản phẩm trong kho
+            Console.WriteLine($"[InventoryService] Đã xác nhận trừ kho cho các sản phẩm trong đơn #{order.OrderId}.");
         }
     }
 
-    // 4. Observer ghi Log hệ thống
-    public class LoggerObserver : IObserver
+    // 3.3. Observer Tích điểm thành viên
+    public class MembershipObserver : IOrderObserver
     {
-        public void Update(string message)
+        public void Update(Order order)
         {
-            // Trong dự án thực tế, chỗ này có thể lưu file .txt hoặc đẩy lên Kibana/ElasticSearch
-            Console.WriteLine($"[System Log Observer]: Đã ghi nhận sự kiện '{message}' vào CSDL.");
+            // Công thức: 100.000đ = 1 điểm
+            decimal points = (order.TotalAmount ?? 0) / 100000;
+            Console.WriteLine($"[MembershipService] Khách hàng ID {order.CustomerId} được cộng {(int)points} điểm thưởng.");
         }
     }
 }
