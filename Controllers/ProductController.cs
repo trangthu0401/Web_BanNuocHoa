@@ -28,6 +28,29 @@ namespace PerfumeStore.Controllers
                 return NotFound();
             }
 
+            // ======================================================================
+            // ÁP DỤNG FACTORY PATTERN: Tự động phân bổ chính sách giá & khuyến mãi
+            // ======================================================================
+            // ⚠️ LƯU Ý SƯ PHẠM (TẠI SAO KHÔNG ĐĂNG KÝ DI VÀ BỎ HARDCODE ID?):
+            // 1. Không dùng DI: Vì ProductProcessorFactory dùng phương thức tĩnh (static GetProcessor) 
+            //    nên ta gọi trực tiếp thông qua tên Class mà không cần đăng ký trong Program.cs.
+            // 2. Không Hardcode ID: Ta truyền thẳng Tên Danh Mục (CategoryName) lấy từ Database 
+            //    vào Nhà máy thay vì kiểm tra ID cứng (switch case 1, 2). Việc này đảm bảo chuẩn 
+            //    kiến trúc. Giả sử Database xóa danh mục cũ và sinh ID mới, Pattern vẫn tự động 
+            //    nhận diện đúng chữ "Nam" hay "Nữ" và xuất ra đúng chính sách khuyến mãi.
+            // ======================================================================
+
+            // Lấy tên danh mục một cách an toàn (tránh lỗi NullReferenceException)
+            string categoryName = product.Categories?.FirstOrDefault()?.CategoryName ?? "";
+
+            // Gọi Nhà máy (Factory) để chế tạo ra đúng Bộ xử lý (Nam/Nữ/Unisex)
+            var processor = PerfumeStore.DesignPatterns.Factory.ProductProcessorFactory.GetProcessor(categoryName);
+
+            // Nhận kết quả từ Pattern và đẩy ra ViewBag để giao diện (View) hiển thị
+            ViewBag.FinalPrice = processor.CalculateFinalPrice(product.Price);
+            ViewBag.PromotionNote = processor.GetPromotionNote();
+
+
             // Tính phần "Bạn đang xem" = ProductName - SuggestionName
             string viewingType = product.ProductName;
             if (!string.IsNullOrEmpty(product.SuggestionName) && product.ProductName.Contains(product.SuggestionName))
@@ -49,7 +72,7 @@ namespace PerfumeStore.Controllers
             {
                 relatedProducts = await _context.Products
                     .Include(p => p.ProductImages)
-                    .Where(p => p.ProductId != id && 
+                    .Where(p => p.ProductId != id &&
                                 p.ProductName.Contains(product.SuggestionName) &&
                                 (p.IsPublished == true || p.IsPublished == null))
                     .Take(4) // Lấy tối đa 4 sản phẩm
