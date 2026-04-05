@@ -5,35 +5,40 @@ using PerfumeStore.Models.ViewModels;
 using PerfumeStore.Services;
 using PerfumeStore.Areas.Admin.Services;
 using System.Text.Json;
+using PerfumeStore.DesignPatterns.Observer;
 
 namespace PerfumeStore.Controllers
 {
-    
+
     ///     Quản lý toàn bộ dòng chảy giỏ hàng & đặt hàng của khách hàng:
     ///     - Cập nhật session giỏ hàng (thêm/xóa/sửa số lượng, yêu thích…)
     ///     - Tính toán phí (voucher, VAT, vận chuyển) phục vụ trang Checkout
     ///     - Đẩy đơn hàng vào database và chuyển hướng sang luồng thanh toán (COD / chuyển khoản PayOS)
-    
+
     public class CartController : Controller
     {
         ILogger<CartController> _logger;
+        private readonly PerfumeStore.DesignPatterns.Facade.ICheckoutFacade _checkoutFacade;
         private readonly IWebHostEnvironment _env;
         private readonly IOrderService _orderService;
         private readonly PerfumeStoreContext _context;
         private readonly IWarrantyService _warrantyService;
+        private readonly PerfumeStore.DesignPatterns.Observer.OrderSubject _orderSubject;
 
-        public CartController(ILogger<CartController> logger, IWebHostEnvironment env, IOrderService orderService, PerfumeStoreContext context, IWarrantyService warrantyService)
+        public CartController(ILogger<CartController> logger, IWebHostEnvironment env, IOrderService orderService, PerfumeStoreContext context, IWarrantyService warrantyService, PerfumeStore.DesignPatterns.Facade.ICheckoutFacade checkoutFacade, PerfumeStore.DesignPatterns.Observer.OrderSubject orderSubject)
         {
             _logger = logger;
             _env = env;
             _orderService = orderService;
             _context = context;
             _warrantyService = warrantyService;
+            _checkoutFacade = checkoutFacade;
+            _orderSubject = orderSubject;
         }
 
-        
+
         ///     Hiển thị danh sách sản phẩm trong giỏ cùng các nút điều hướng tới thanh toán.
-        
+
         public IActionResult Index()
         {
             var cart = GetCartFromSession();
@@ -42,9 +47,9 @@ namespace PerfumeStore.Controllers
 
         private const string CartSessionKey = "CART_SESSION";
 
-        
+
         ///     Lấy giỏ hàng hiện tại từ session, trả về danh sách rỗng nếu session chưa tồn tại hoặc deserialize lỗi.
-        
+
         private List<CartItem> GetCartFromSession()
         {
             var json = HttpContext.Session.GetString(CartSessionKey);
@@ -53,32 +58,32 @@ namespace PerfumeStore.Controllers
             catch { return new List<CartItem>(); }
         }
 
-        
+
         ///     Lưu lại trạng thái giỏ hàng mới vào session để đồng bộ giữa các request.
-        
+
         private void SaveCartToSession(List<CartItem> items)
         {
             HttpContext.Session.SetString(CartSessionKey, JsonSerializer.Serialize(items));
         }
 
         [HttpGet]
-        
+
         ///     API AJAX để lấy tổng số lượng item đang có trong giỏ (hiển thị icon cart).
-        
+
         public IActionResult GetCartCount()
         {
             var cart = GetCartFromSession();
             var count = cart.Sum(item => item.Quantity);
             return Json(new
             {
-                success = true, 
-                cartCount = count 
+                success = true,
+                cartCount = count
             });
         }
 
-        
+
         ///     Đọc voucher đã lưu trong session (khi khách quay vòng quay, nhập mã hoặc click từ URL).
-        
+
         private VoucherModel? GetAppliedVoucher()
         {
             var voucherJson = HttpContext.Session.GetString("AppliedVoucher");
@@ -103,9 +108,9 @@ namespace PerfumeStore.Controllers
             }
         }
 
-        
+
         ///     Tính số tiền giảm dựa trên loại voucher (percent/amount/freeship) & giá trị áp dụng.
-        
+
         private decimal CalculateDiscount(decimal subtotal, VoucherModel? voucher)
         {
             if (voucher == null)
@@ -132,9 +137,9 @@ namespace PerfumeStore.Controllers
             return discount;
         }
 
-        
+
         ///     Lấy phần trăm VAT từ bảng Fee trong database rồi nhân với tạm tính.
-        
+
         private decimal CalculateVAT(decimal subtotal)
         {
             // Lấy VAT từ database
@@ -149,9 +154,9 @@ namespace PerfumeStore.Controllers
             return 0m;
         }
 
-        
+
         ///     Tính phí vận chuyển dựa trên fee cấu hình + ngưỡng miễn phí + voucher freeship (nếu có).
-        
+
         private decimal CalculateShippingFee(decimal subtotal, VoucherModel? voucher)
         {
             // Nếu có voucher miễn phí ship và đơn hàng >= 200,000đ
@@ -172,9 +177,9 @@ namespace PerfumeStore.Controllers
             return subtotal >= 5000000 ? 0m : 30000m;
         }
 
-        
+
         ///     Cung cấp danh sách voucher có thể áp dụng: ưu tiên lấy coupon thật trong DB, fallback sang data mẫu.
-        
+
         private List<VoucherModel> GetAvailableVouchers()
         {
             // Lấy coupon từ DB để cho phép áp dụng qua URL (?voucherCode=...)
@@ -214,9 +219,9 @@ namespace PerfumeStore.Controllers
         }
 
 
-        
+
         ///     Sinh mô tả ngắn cho sản phẩm dựa trên tên (dùng cho các sản phẩm test khi chưa có dữ liệu thật).
-        
+
         private static string GenerateDescriptionFromName(string name)
         {
             // Ưu tiên mô tả tùy biến theo từng sản phẩm cụ thể
@@ -244,13 +249,31 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        
+
         ///     Thêm sản phẩm vào giỏ. Hỗ trợ AJAX (trả JSON) và điều hướng thông thường.
         ///     Kiểm tra Stock trước khi thêm và giới hạn số lượng tối đa 10 để tránh spam đơn hàng.
-        
-        public async Task<IActionResult> AddToCart(string imageUrl, string name, decimal price, int? productId = null)
+
+        public async Task<IActionResult> AddToCart(string imageUrl, string name, decimal price, int? productId = null, bool hasGiftWrap = false, bool hasEngraveName = false, string engraveContent = "")
         {
             var cart = GetCartFromSession();
+
+            // Áp dụng Decorator Pattern để tính toán lại giá và mô tả
+            PerfumeStore.DesignPatterns.Decorator.IProduct productDecorated = new PerfumeStore.DesignPatterns.Decorator.BasePerfume(name, price);
+            if (hasGiftWrap) productDecorated = new PerfumeStore.DesignPatterns.Decorator.GiftWrapDecorator(productDecorated);
+            if (hasEngraveName) productDecorated = new PerfumeStore.DesignPatterns.Decorator.EngraveNameDecorator(productDecorated);
+
+            var finalName = productDecorated.GetDescription();
+            var finalPrice = productDecorated.GetPrice();
+
+            if (hasEngraveName && !string.IsNullOrWhiteSpace(engraveContent))
+            {
+                finalName = finalName.Replace("(+ Khắc tên theo yêu cầu)", $"(+ Khắc: '{engraveContent}')");
+            }
+
+            // Tạo ImageUrl độc nhất dựa trên cờ
+            string uniqueImageUrl = imageUrl;
+            if (hasGiftWrap) uniqueImageUrl += (uniqueImageUrl.Contains("?") ? "&" : "?") + "giftwrap=true";
+            if (hasEngraveName) uniqueImageUrl += (uniqueImageUrl.Contains("?") ? "&" : "?") + "engrave=true";
 
             // Nếu có ProductId, kiểm tra Stock từ database
             if (productId.HasValue && productId.Value > 0)
@@ -260,49 +283,54 @@ namespace PerfumeStore.Controllers
                 {
                     var errorMsg = "Không tìm thấy sản phẩm trong hệ thống.";
                     if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
                         return Json(new { success = false, message = errorMsg, cartCount = cart.Sum(item => item.Quantity) });
-
+                    }
                     TempData["Error"] = errorMsg;
                     return RedirectToAction(nameof(Index));
                 }
 
-                // Tìm sản phẩm trong giỏ hàng theo ProductId
-                var found = cart.FirstOrDefault(i => i.ProductId == productId.Value);
+                // Tìm sản phẩm trong giỏ hàng theo ProductId và tùy chọn
+                var found = cart.FirstOrDefault(i => i.ProductId == productId.Value && i.HasGiftWrap == hasGiftWrap && i.HasEngraveName == hasEngraveName);
                 var currentQuantityInCart = found?.Quantity ?? 0;
                 var requestedQuantity = currentQuantityInCart + 1; // Số lượng sau khi thêm
 
-                // Kiểm tra Tồn Kho (Stock)
+                // Kiểm tra Stock
                 if (requestedQuantity > product.Stock)
                 {
                     var errorMsg = $"Sản phẩm chỉ còn {product.Stock} sản phẩm trong kho. Bạn đã có {currentQuantityInCart} sản phẩm trong giỏ hàng.";
                     if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
                         return Json(new { success = false, message = errorMsg, cartCount = cart.Sum(item => item.Quantity) });
-
+                    }
                     TempData["Error"] = errorMsg;
                     return RedirectToAction(nameof(Index));
                 }
 
-                // Giới hạn chống Spam
+                // Kiểm tra số lượng tối đa là 10
                 if (requestedQuantity > 10)
                 {
                     var errorMsg = "Số lượng tối đa là 10 sản phẩm.";
                     if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
                         return Json(new { success = false, message = errorMsg, cartCount = cart.Sum(item => item.Quantity) });
-
+                    }
                     TempData["Error"] = errorMsg;
                     return RedirectToAction(nameof(Index));
                 }
 
-                // Thêm mới hoặc cộng dồn số lượng
+                // Thêm hoặc cập nhật sản phẩm trong giỏ
                 if (found == null)
                 {
                     cart.Add(new CartItem
                     {
                         ProductId = productId.Value,
-                        ImageUrl = imageUrl, 
-                        ProductName = name, 
-                        Quantity = 1, 
-                        UnitPrice = price 
+                        ImageUrl = uniqueImageUrl,
+                        ProductName = finalName,
+                        Quantity = 1,
+                        UnitPrice = finalPrice,
+                        HasGiftWrap = hasGiftWrap,
+                        HasEngraveName = hasEngraveName
                     });
                 }
                 else
@@ -313,19 +341,21 @@ namespace PerfumeStore.Controllers
             else
             {
                 // Fallback: Tìm theo ImageUrl nếu không có ProductId (cho tương thích ngược)
-                var found = cart.FirstOrDefault(i => i.ImageUrl.Equals(imageUrl, StringComparison.OrdinalIgnoreCase));
+                var found = cart.FirstOrDefault(i => i.ImageUrl.Equals(uniqueImageUrl, StringComparison.OrdinalIgnoreCase));
                 if (found == null)
                 {
-                    cart.Add(new CartItem { ImageUrl = imageUrl, ProductName = name, Quantity = 1, UnitPrice = price });
+                    cart.Add(new CartItem { ImageUrl = uniqueImageUrl, ProductName = finalName, Quantity = 1, UnitPrice = finalPrice, HasGiftWrap = hasGiftWrap, HasEngraveName = hasEngraveName });
                 }
                 else
                 {
+                    // Kiểm tra số lượng tối đa là 10
                     if (found.Quantity >= 10)
                     {
                         var errorMsg = "Số lượng tối đa là 10 sản phẩm.";
                         if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                        {
                             return Json(new { success = false, message = errorMsg, cartCount = cart.Sum(item => item.Quantity) });
-
+                        }
                         TempData["Error"] = errorMsg;
                         return RedirectToAction(nameof(Index));
                     }
@@ -333,17 +363,19 @@ namespace PerfumeStore.Controllers
                 }
             }
 
-            // 6. Lưu Giỏ hàng và Trả về kết quả
             SaveCartToSession(cart);
+
+            // Calculate total quantity across all items
             var totalQuantity = cart.Sum(item => item.Quantity);
 
+            // Return JSON response for AJAX requests
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
                 return Json(new
                 {
                     success = true,
                     message = "Đã thêm sản phẩm vào giỏ hàng!",
-                    cartCount = totalQuantity
+                    cartCount = totalQuantity  // Return total quantity
                 });
             }
 
@@ -352,9 +384,9 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        
+
         ///     Xóa sản phẩm khỏi giỏ bằng submit form truyền thống.
-        
+
         public IActionResult RemoveFromCart(string imageUrl)
         {
             var cart = GetCartFromSession();
@@ -365,9 +397,9 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        
+
         ///     Đánh dấu sản phẩm yêu thích ngay trong giỏ – dữ liệu lưu kèm CartItem trong session.
-        
+
         public IActionResult ToggleFavorite(string imageUrl)
         {
             var cart = GetCartFromSession();
@@ -382,9 +414,9 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        
+
         ///     Endpoint AJAX xóa sản phẩm, trả về JSON để UI tự cập nhật mà không reload.
-        
+
         public IActionResult RemoveFromCartAjax(string imageUrl)
         {
             var cart = GetCartFromSession();
@@ -398,9 +430,9 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        
+
         ///     Cập nhật số lượng từng item (AJAX), đồng thời đảm bảo giới hạn 1-10 và kiểm tra Stock.
-        
+
         public async Task<IActionResult> UpdateCartQuantity(string imageUrl, int quantity)
         {
             var cart = GetCartFromSession();
@@ -445,7 +477,7 @@ namespace PerfumeStore.Controllers
                     quantity = item.Quantity,
                     maxReached = item.Quantity >= 10,
                     stockLimited = item.ProductId > 0 && item.Quantity < quantity,
-                    message = item.Quantity >= 10 ? "Số lượng tối đa là 10 sản phẩm." : 
+                    message = item.Quantity >= 10 ? "Số lượng tối đa là 10 sản phẩm." :
                               (item.ProductId > 0 && item.Quantity < quantity ? $"Số lượng đã được điều chỉnh về {item.Quantity} do giới hạn tồn kho." : null)
                 });
             }
@@ -454,9 +486,9 @@ namespace PerfumeStore.Controllers
 
         // FIX: Thêm method để test thêm sản phẩm vào cart
         [HttpGet]
-        
+
         ///     Endpoint hỗ trợ QA: clear giỏ và nạp bộ sản phẩm mẫu để thử luồng checkout nhanh.
-        
+
         public IActionResult AddTestProducts()
         {
             var cart = GetCartFromSession();
@@ -483,9 +515,9 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        
+
         ///     Fake luồng thanh toán đơn giản dùng cho demo (không ghi đơn hàng vào DB).
-        
+
         public IActionResult ProcessPayment()
         {
             var cart = GetCartFromSession();
@@ -519,10 +551,10 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        
+
         ///     Thanh toán nhanh trực tiếp từ trang giỏ: tính tổng dựa trên voucher/VAT/ship rồi điều hướng tới trang thành công.
         ///     Không yêu cầu nhập thông tin khách hàng – phù hợp demo UX.
-        
+
         public IActionResult QuickPayment()
         {
             var cart = GetCartFromSession();
@@ -571,11 +603,19 @@ namespace PerfumeStore.Controllers
             return RedirectToAction(nameof(PaymentSuccess));
         }
 
+        [HttpPost]
+        public IActionResult PrepareCheckout([FromBody] List<string> selectedImageUrls)
+        {
+            if (selectedImageUrls == null || !selectedImageUrls.Any())
+            {
+                return Json(new { success = false, message = "Không có sản phẩm nào được chọn!" });
+            }
+
+            HttpContext.Session.SetString("CHECKOUT_SELECTED_ITEMS", System.Text.Json.JsonSerializer.Serialize(selectedImageUrls));
+            return Json(new { success = true });
+        }
+
         [HttpGet]
-        
-        ///     Chuẩn bị dữ liệu hiển thị trang Checkout: đảm bảo user đăng nhập, xử lý voucher từ URL/spin wheel,
-        ///     tính toán toàn bộ fee và trả về <see cref="CheckoutViewModel"/>.
-        
         public IActionResult Checkout()
         {
             // Kiểm tra đăng nhập
@@ -585,13 +625,28 @@ namespace PerfumeStore.Controllers
                 return RedirectToAction("Login", "Auth");
             }
 
+            // 1. Lấy toàn bộ giỏ hàng
             var cart = GetCartFromSession();
+
+            // --- [THÊM MỚI TỪ ĐÂY] --- Lọc ra các sản phẩm đã được chọn để thanh toán
+            var selectedItemsJson = HttpContext.Session.GetString("CHECKOUT_SELECTED_ITEMS");
+            if (!string.IsNullOrEmpty(selectedItemsJson))
+            {
+                var selectedUrls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(selectedItemsJson) ?? new List<string>();
+                if (selectedUrls.Any())
+                {
+                    cart = cart.Where(i => selectedUrls.Contains(i.ImageUrl)).ToList();
+                }
+            }
+            // --- [KẾT THÚC THÊM MỚI] ---
 
             if (cart.Count == 0)
             {
-                TempData["Error"] = "Giỏ hàng của bạn đang trống";
+                TempData["Error"] = "Giỏ hàng của bạn đang trống hoặc bạn chưa chọn sản phẩm nào";
                 return RedirectToAction(nameof(Index));
             }
+
+            // ... (Phần code tính toán Voucher, VAT, ShippingFee bên dưới giữ nguyên) ...
 
             // Kiểm tra voucher từ URL parameter
             var voucherCode = Request.Query["voucherCode"].FirstOrDefault();
@@ -637,287 +692,96 @@ namespace PerfumeStore.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        
+
         ///     Nhận thông tin Checkout từ form, tạo Customer/Address/Order/OrderDetails trong database
         ///     và tách luồng thanh toán:
         ///     - COD: hoàn tất đơn ngay, chuyển đến trang PaymentSuccess nội bộ.
         ///     - BANK_TRANSFER: lưu thông tin đơn vào session, chuyển sang PaymentController để gọi PayOS.
-        
+
         public async Task<IActionResult> ProcessCheckout(CheckoutViewModel model)
         {
-            // Kiểm tra đăng nhập - cho phép checkout mà không cần đăng nhập
-            if (!User.Identity.IsAuthenticated)
-            {
-                // Không redirect, tiếp tục với guest checkout
-            }
-
             var cart = GetCartFromSession();
 
-            if (cart.Count == 0)
+            var selectedItemsJson = HttpContext.Session.GetString("CHECKOUT_SELECTED_ITEMS");
+            var selectedUrls = new List<string>();
+            if (!string.IsNullOrEmpty(selectedItemsJson))
             {
-                TempData["Error"] = "Giỏ hàng của bạn đang trống";
-                return RedirectToAction(nameof(Index));
+                selectedUrls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(selectedItemsJson) ?? new List<string>();
+                if (selectedUrls.Any())
+                {
+                    cart = cart.Where(i => selectedUrls.Contains(i.ImageUrl)).ToList();
+                }
             }
+
+            if (cart.Count == 0) return RedirectToAction(nameof(Index));
 
             if (!ModelState.IsValid)
             {
-                model.CartItems = cart;
-                model.Subtotal = cart.Sum(item => item.LineTotal);
-                model.ShippingFee = 0m;
-                model.Total = cart.Sum(item => item.LineTotal);
+                model.CartItems = cart; model.Total = cart.Sum(i => i.LineTotal);
                 return View("Checkout", model);
             }
 
             try
             {
-                // Lấy thông tin voucher đã áp dụng
                 var appliedVoucher = GetAppliedVoucher();
-
-                // Lấy email từ form hoặc user đã đăng nhập
-                var customerEmail = User.Identity.IsAuthenticated ?
-                    User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value :
-                    model.CustomerEmail;
-
-                // Tìm hoặc tạo customer
-                var customer = await _context.Customers
-                    .FirstOrDefaultAsync(c => c.Email == customerEmail);
-
-                if (customer == null)
-                {
-                    // Tạo customer mà không cần MembershipID
-                    customer = new Customer
-                    {
-                        Name = model.CustomerName,
-                        Email = customerEmail,
-                        Phone = model.CustomerPhone,
-                        CreatedDate = DateTime.Now,
-                        BirthYear = 1990,
-                        PasswordHash = "",
-                        SpinNumber = 0
-                    };
-                    _context.Customers.Add(customer);
-                    await _context.SaveChangesAsync();
-                }
-
-                // Tạo shipping address
-                var shippingAddress = new ShippingAddress
-                {
-                    CustomerId = customer.CustomerId,
-                    RecipientName = model.CustomerName,
-                    Phone = model.CustomerPhone,
-                    Province = model.Province,
-                    District = model.District,
-                    Ward = model.Ward,
-                    AddressLine = model.ShippingAddress,
-                    IsDefault = model.SaveAsDefaultAddress
-                };
-
-                _context.ShippingAddresses.Add(shippingAddress);
-                await _context.SaveChangesAsync();
-
-                // Tìm hoặc tạo coupon từ voucher đã áp dụng
-                Coupon? coupon = null;
-                if (appliedVoucher != null)
-                {
-                    // Tìm coupon trong database theo code
-                    var codeLower = appliedVoucher.Code.ToLower();
-                    coupon = await _context.Coupons
-                        .FirstOrDefaultAsync(c => c.Code != null && c.Code.ToLower() == codeLower);
-
-                    if (coupon == null)
-                    {
-                        // Tạo coupon mới nếu chưa tồn tại
-                        coupon = new Coupon
-                        {
-                            Code = appliedVoucher.Code,
-                            DiscountAmount = appliedVoucher.Type == "amount" ? appliedVoucher.Value : 0,
-                            CreatedDate = DateTime.Now,
-                            ExpiryDate = DateTime.Now.AddDays(30),
-                            IsUsed = false
-                        };
-                        _context.Coupons.Add(coupon);
-                        await _context.SaveChangesAsync();
-                    }
-                }
-
-                // Tạo order - Tính tổng tiền đúng bao gồm VAT và shipping fee
-                var subtotal = cart.Sum(item => item.LineTotal);
+                var customerEmail = User.Identity.IsAuthenticated ? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value : model.CustomerEmail;
+                var subtotal = cart.Sum(i => i.LineTotal);
                 var discount = CalculateDiscount(subtotal, appliedVoucher);
                 var shippingFee = CalculateShippingFee(subtotal, appliedVoucher);
-                var vat = CalculateVAT(subtotal); // VAT tính trên giá gốc (trước khi trừ voucher)
-                var total = subtotal - discount + shippingFee + vat;
-                
-                var paymentMethodText = model.PaymentMethod == "BANK_TRANSFER" ? "Chuyển khoản ngân hàng" : "Thanh toán khi nhận hàng";
-                var order = new Order
-                {
-                    CustomerId = customer.CustomerId,
-                    AddressId = shippingAddress.AddressId,
-                    CouponId = coupon?.CouponId,
-                    OrderDate = DateTime.Now,
-                    TotalAmount = total, // Lưu tổng tiền đúng bao gồm VAT và shipping fee
-                    PaymentMethod = paymentMethodText,
-                    Status = model.PaymentMethod == "BANK_TRANSFER" ? "Chờ thanh toán" : "Đang xử lý",
-                    Notes = model.OrderNotes
-                };
+                var total = subtotal - discount + shippingFee + CalculateVAT(subtotal);
 
-                _context.Orders.Add(order);
-                await _context.SaveChangesAsync();
+                // --- ÁP DỤNG FACADE PATTERN ---
 
-                // Tạo order details và giảm Stock
-                foreach (var cartItem in cart)
-                {
-                    Product? product = null;
-                    int productId;
+                var order = await _checkoutFacade.PlaceOrderAsync(model, customerEmail, cart, appliedVoucher, total);
 
-                    // Ưu tiên tìm theo ProductId nếu có
-                    if (cartItem.ProductId > 0)
-                    {
-                        product = await _context.Products.FindAsync(cartItem.ProductId);
-                    }
+                // --- ÁP DỤNG MẪU OBSERVER TẠI ĐÂY ---
+                _orderSubject.Notify(order);
+                // -----------------------------------
 
-                    // Nếu không tìm thấy, tìm theo tên
-                    if (product == null)
-                    {
-                        product = await _context.Products
-                            .FirstOrDefaultAsync(p => p.ProductName == cartItem.ProductName);
-                    }
+                var orderInfo = new { OrderId = order.OrderId.ToString(), OrderDate = order.OrderDate, Items = cart.ToList(), Total = order.TotalAmount };
+                HttpContext.Session.SetString("LAST_ORDER", System.Text.Json.JsonSerializer.Serialize(orderInfo));
 
-                    if (product != null)
-                    {
-                        productId = product.ProductId;
+                // --- ÁP DỤNG STRATEGY PATTERN ---
+                // Thay thế IF-ELSE bằng Đối tượng Chiến lược điều hướng
+                var paymentContext = new PerfumeStore.DesignPatterns.Strategy.PaymentContext();
 
-                        // Kiểm tra Stock trước khi tạo đơn
-                        if (product.Stock < cartItem.Quantity)
-                        {
-                            TempData["Error"] = $"Sản phẩm '{product.ProductName}' chỉ còn {product.Stock} sản phẩm trong kho. Vui lòng điều chỉnh số lượng trong giỏ hàng.";
-                            model.CartItems = cart;
-                            model.Subtotal = cart.Sum(item => item.LineTotal);
-                            model.ShippingFee = 0m;
-                            model.Total = cart.Sum(item => item.LineTotal);
-                            return View("Checkout", model);
-                        }
-
-                        // Giảm Stock
-                        product.Stock -= cartItem.Quantity;
-                    }
-                    else
-                    {
-                        // Tạo sản phẩm tạm thời (fallback cho sản phẩm không có trong DB)
-                        var tempProduct = new Product
-                        {
-                            ProductName = cartItem.ProductName,
-                            Price = cartItem.UnitPrice,
-                            DescriptionNo1 = cartItem.Description ?? "Sản phẩm từ giỏ hàng",
-                            BrandId = 1, // Default brand
-                            IsPublished = true,
-                            Stock = 999,
-                            ReleaseYear = DateTime.Now.Year,
-                            Origin = "Việt Nam",
-                            Style = "Unisex",
-                            Concentration = "EDP",
-                            TopNote = "N/A",
-                            HeartNote = "N/A",
-                            BaseNote = "N/A",
-                            Scent = "N/A",
-                            UsingOccasion = "N/A",
-                            Craftsman = "N/A",
-                            Introduction = "Sản phẩm được tạo tự động từ giỏ hàng",
-                            WarrantyPeriodMonths = 12
-                        };
-
-                        _context.Products.Add(tempProduct);
-                        await _context.SaveChangesAsync();
-                        productId = tempProduct.ProductId;
-                        product = tempProduct;
-                        // Không giảm Stock cho sản phẩm tạm thời vì đã set Stock = 999
-                    }
-
-                    var orderDetail = new OrderDetail
-                    {
-                        OrderId = order.OrderId,
-                        ProductId = productId,
-                        Quantity = cartItem.Quantity,
-                        UnitPrice = cartItem.UnitPrice,
-                        TotalPrice = cartItem.LineTotal
-                    };
-                    _context.OrderDetails.Add(orderDetail);
-                }
-
-                await _context.SaveChangesAsync();
-
-                // Đánh dấu coupon đã sử dụng cho COD orders (bank transfer sẽ đánh dấu sau khi thanh toán thành công)
-                if (model.PaymentMethod != "BANK_TRANSFER" && coupon != null)
-                {
-                    coupon.IsUsed = true;
-                    coupon.UsedDate = DateTime.Now;
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation($"Marked coupon {coupon.Code} as used for COD order {order.OrderId}");
-                }
-
-                // Bảo hành sẽ được tạo tự động khi admin set đơn hàng ở trạng thái "Đã giao hàng"
-                // Không tạo bảo hành ở đây nữa
-
-                // Lưu thông tin đơn hàng vào session để hiển thị trong trang thành công
-                var orderInfo = new
-                {
-                    OrderId = order.OrderId.ToString(),
-                    OrderDate = order.OrderDate,
-                    Items = cart.ToList(),
-                    Subtotal = subtotal,
-                    Discount = discount,
-                    ShippingFee = shippingFee,
-                    VAT = vat,
-                    Total = order.TotalAmount,
-                    AppliedVoucher = appliedVoucher != null ? (object)appliedVoucher : null,
-                    CustomerInfo = new
-                    {
-                        Name = model.CustomerName,
-                        Email = customerEmail,
-                        Phone = model.CustomerPhone,
-                        Address = model.ShippingAddress
-                    }
-                };
-
-                HttpContext.Session.SetString("LAST_ORDER", JsonSerializer.Serialize(orderInfo));
-
-                // Kiểm tra phương thức thanh toán
                 if (model.PaymentMethod == "BANK_TRANSFER")
                 {
-                    // Lưu thông tin cho thanh toán PayOS
                     HttpContext.Session.SetString("PENDING_ORDER_ID", order.OrderId.ToString());
                     HttpContext.Session.SetString("PENDING_ORDER_AMOUNT", order.TotalAmount.ToString());
-
-                    // Chuyển đến PaymentController để tạo link thanh toán
-                    return RedirectToAction("CreatePaymentProgress", "Payment");
+                    paymentContext.SetStrategy(new PerfumeStore.DesignPatterns.Strategy.PayOsPaymentStrategy());
                 }
                 else
                 {
-                    // COD - Xóa giỏ hàng và voucher sau khi đặt hàng thành công
-                cart.Clear();
-                SaveCartToSession(cart);
-                HttpContext.Session.Remove("AppliedVoucher");
+                    // --- [CODE MỚI TẶNG THÊM DÁN VÀO ĐÂY] ---
+                    // Xóa những món ĐÃ THANH TOÁN khỏi giỏ hàng gốc
+                    var fullCart = GetCartFromSession();
+                    fullCart.RemoveAll(i => selectedUrls.Contains(i.ImageUrl));
+                    SaveCartToSession(fullCart);
 
-                return RedirectToAction(nameof(PaymentSuccess));
+                    HttpContext.Session.Remove("AppliedVoucher");
+                    HttpContext.Session.Remove("CHECKOUT_SELECTED_ITEMS"); // Xóa session tạm
+                                                                           // ----------------------------------------
+
+                    paymentContext.SetStrategy(new PerfumeStore.DesignPatterns.Strategy.CodPaymentStrategy());
                 }
+
+                // Thực thi điều hướng
+                var routeResult = paymentContext.ExecuteRouting(order);
+                return RedirectToAction(routeResult.ActionName, routeResult.ControllerName);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating order");
-                TempData["Error"] = $"Có lỗi xảy ra khi tạo đơn hàng: {ex.Message}";
-                
-                // Reload model để hiển thị lại form
-                model.CartItems = cart;
-                model.Subtotal = cart.Sum(item => item.LineTotal);
-                model.ShippingFee = 0m;
-                model.Total = cart.Sum(item => item.LineTotal);
+                TempData["Error"] = ex.Message;
                 return View("Checkout", model);
             }
         }
 
-        
+
         ///     Đọc thông tin đơn hàng cuối cùng từ session hoặc database (dành cho luồng COD/quick payment),
         ///     hiển thị lại để khách xem chi tiết.
-        
+
         public async Task<IActionResult> PaymentSuccess()
         {
             var orderJson = HttpContext.Session.GetString("LAST_ORDER");
@@ -931,7 +795,7 @@ namespace PerfumeStore.Controllers
             {
                 var orderInfo = JsonSerializer.Deserialize<JsonElement>(orderJson);
                 var orderId = orderInfo.GetProperty("OrderId").GetString();
-                
+
                 // Lấy thông tin đơn hàng từ database
                 var order = await _orderService.GetOrderByOrderIdAsync(orderId);
                 if (order != null)
@@ -999,7 +863,7 @@ namespace PerfumeStore.Controllers
                             Quantity = od.Quantity,
                             UnitPrice = od.UnitPrice,
                             TotalPrice = od.TotalPrice,
-                            ImageUrl = od.Product.ProductImages?.FirstOrDefault()?.ImageData != null 
+                            ImageUrl = od.Product.ProductImages?.FirstOrDefault()?.ImageData != null
                                 ? $"data:{od.Product.ProductImages.First().ImageMimeType};base64,{Convert.ToBase64String(od.Product.ProductImages.First().ImageData)}"
                                 : "/images/ProductSummary/chanel-bleu-de-chanel-edp-100-ml.webp" // Default image
                         }).ToList(),
@@ -1009,7 +873,7 @@ namespace PerfumeStore.Controllers
                             DiscountAmount = order.Coupon.DiscountAmount
                         } : null
                     };
-                    
+
                     return View(orderViewModel);
                 }
                 else
@@ -1027,9 +891,9 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpPost]
-        
+
         ///     Xóa voucher đang áp dụng khỏi session – được gọi từ trang Checkout để khách chọn mã mới.
-        
+
         public IActionResult RemoveVoucher()
         {
             try
@@ -1044,9 +908,9 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet]
-        
+
         ///     API hỗ trợ JavaScript đọc lại voucher từ session (ví dụ sau khi redirect từ vòng quay may mắn).
-        
+
         public IActionResult GetAppliedVoucherApi()
         {
             try
@@ -1068,19 +932,29 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet]
-        
-        ///     Tính toán lại subtotal/discount/ship/VAT/total trên server và trả về JSON
-        ///     để UI cập nhật tức thời sau khi áp dụng/xóa voucher.
-        
         public IActionResult GetCheckoutSummary()
         {
             try
             {
                 var cart = GetCartFromSession();
+
+                // --- [THÊM MỚI] --- Lọc sản phẩm trước khi tính lại tiền
+                var selectedItemsJson = HttpContext.Session.GetString("CHECKOUT_SELECTED_ITEMS");
+                if (!string.IsNullOrEmpty(selectedItemsJson))
+                {
+                    var selectedUrls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(selectedItemsJson) ?? new List<string>();
+                    if (selectedUrls.Any())
+                    {
+                        cart = cart.Where(i => selectedUrls.Contains(i.ImageUrl)).ToList();
+                    }
+                }
+                // ------------------
+
                 var appliedVoucher = GetAppliedVoucher();
 
                 var subtotal = cart.Sum(item => item.LineTotal);
                 var discount = CalculateDiscount(subtotal, appliedVoucher);
+                // ... (Phần còn lại giữ nguyên)
                 var shippingFee = CalculateShippingFee(subtotal, appliedVoucher);
                 var vat = CalculateVAT(subtotal);
                 var total = subtotal - discount + shippingFee + vat;
@@ -1104,22 +978,22 @@ namespace PerfumeStore.Controllers
 
         // Test method để kiểm tra database connection
         [HttpGet]
-        
+
         ///     Endpoint debug: kiểm tra kết nối database bằng cách đếm số Customer.
-        
+
         public async Task<IActionResult> TestDatabaseConnection()
         {
             try
             {
                 Console.WriteLine("Testing database connection...");
-                
+
                 // Test database connection bằng cách đếm số customer
                 var customerCount = await _context.Customers.CountAsync();
                 Console.WriteLine($"Database connection successful. Customer count: {customerCount}");
-                
+
                 return Json(new
                 {
-                    success = true, 
+                    success = true,
                     message = "Database connection is working",
                     customerCount = customerCount
                 });
@@ -1129,7 +1003,7 @@ namespace PerfumeStore.Controllers
                 Console.WriteLine($"Database connection error: {ex.Message}");
                 return Json(new
                 {
-                    success = false, 
+                    success = false,
                     message = "Database connection failed",
                     error = ex.Message
                 });
@@ -1138,32 +1012,32 @@ namespace PerfumeStore.Controllers
 
         // Test method để test toàn bộ flow đặt hàng
         [HttpPost]
-        
+
         ///     Luồng thử nghiệm end-to-end: tạo cart test, build CheckoutViewModel và gọi OrderService.CreateOrderAsync.
-        
+
         public async Task<IActionResult> TestOrderFlow()
         {
             try
             {
                 Console.WriteLine("Testing full order flow...");
-                
+
                 // 1. Thêm sản phẩm test vào cart
                 var cart = GetCartFromSession();
                 cart.Clear();
-                
-                var testProduct = new CartItem 
-                { 
-                    ImageUrl = "/images/Checkout/product1.jpg", 
-                    ProductName = "Test Product", 
-                    Description = "Test Description", 
-                    Quantity = 1, 
-                    UnitPrice = 100000 
+
+                var testProduct = new CartItem
+                {
+                    ImageUrl = "/images/Checkout/product1.jpg",
+                    ProductName = "Test Product",
+                    Description = "Test Description",
+                    Quantity = 1,
+                    UnitPrice = 100000
                 };
-                
+
                 cart.Add(testProduct);
                 SaveCartToSession(cart);
                 Console.WriteLine("Test product added to cart");
-                
+
                 // 2. Tạo model test
                 var model = new CheckoutViewModel
                 {
@@ -1176,17 +1050,17 @@ namespace PerfumeStore.Controllers
                     ShippingAddress = "123 Test Street",
                     OrderNotes = "Test order"
                 };
-                
+
                 Console.WriteLine("Test model created");
-                
+
                 // 3. Test tạo đơn hàng
                 Console.WriteLine("Creating test order...");
                 var order = await _orderService.CreateOrderAsync(model, model.CustomerEmail, cart, null);
                 Console.WriteLine($"Test order created with ID: {order.OrderId}");
-                
+
                 return Json(new
                 {
-                    success = true, 
+                    success = true,
                     message = "Full order flow test completed successfully",
                     orderId = order.OrderId,
                     cartCount = cart.Count
@@ -1198,7 +1072,7 @@ namespace PerfumeStore.Controllers
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return Json(new
                 {
-                    success = false, 
+                    success = false,
                     message = "Full order flow test failed",
                     error = ex.Message
                 });
@@ -1207,9 +1081,9 @@ namespace PerfumeStore.Controllers
 
         // API để lấy địa chỉ mặc định của khách hàng
         [HttpGet]
-        
+
         ///     Lấy địa chỉ mặc định của khách hàng đăng nhập (được dùng để auto-fill form Checkout).
-        
+
         public async Task<IActionResult> GetDefaultAddress()
         {
             try
@@ -1259,9 +1133,9 @@ namespace PerfumeStore.Controllers
 
         // Trang test checkout flow
         [HttpGet]
-        
+
         ///     Trang HTML nhẹ để QA kiểm tra form checkout (không ảnh hưởng người dùng thật).
-        
+
         public IActionResult TestCheckout()
         {
             return View();
@@ -1269,9 +1143,9 @@ namespace PerfumeStore.Controllers
 
         // Trang test real checkout flow
         [HttpGet]
-        
+
         ///     Trang demo chứa flow checkout thực tế (bao gồm PayOS) dành cho nội bộ kiểm thử.
-        
+
         public IActionResult TestRealCheckout()
         {
             return View();
@@ -1279,9 +1153,9 @@ namespace PerfumeStore.Controllers
 
         // API để thêm sản phẩm thật từ database vào cart
         [HttpGet]
-        
+
         ///     Lấy 2 sản phẩm thật từ database và đưa vào session để đội sale test.
-        
+
         public async Task<IActionResult> AddRealProductsToCart()
         {
             try
@@ -1335,9 +1209,9 @@ namespace PerfumeStore.Controllers
 
         // API để kiểm tra sản phẩm trong database
         [HttpGet]
-        
+
         ///     Endpoint hỗ trợ QA thống kê nhanh số sản phẩm publish/freeze.
-        
+
         public async Task<IActionResult> GetDatabaseProducts()
         {
             try
@@ -1363,7 +1237,7 @@ namespace PerfumeStore.Controllers
         // API để xóa giỏ hàng
         [HttpGet]
         ///     Xóa hoàn toàn giỏ hàng trong session – dùng cho thao tác thử nghiệm.
-        
+
         public IActionResult ClearCart()
         {
             try
@@ -1387,9 +1261,9 @@ namespace PerfumeStore.Controllers
 
         // Test endpoint đơn giản để kiểm tra form submission
         [HttpPost]
-        
+
         ///     In ra console nội dung form checkout gửi lên (debug front-end).
-        
+
         public IActionResult TestFormSubmission(CheckoutViewModel model)
         {
             Console.WriteLine("=== TEST FORM SUBMISSION ===");
@@ -1429,9 +1303,9 @@ namespace PerfumeStore.Controllers
 
         // Test endpoint để kiểm tra toàn bộ flow đặt hàng
         [HttpGet]
-        
+
         ///     Bộ kịch bản kiểm thử tổng thể: từ kiểm tra DB, thêm hàng vào cart, tạo order đến đọc lại order.
-        
+
         public async Task<IActionResult> TestFullCheckoutFlow()
         {
             try

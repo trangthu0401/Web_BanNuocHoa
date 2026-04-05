@@ -790,7 +790,12 @@
                             this.disabled = false;
                             this.innerHTML = originalContent;
                             showToast('Có lỗi xảy ra khi thêm sản phẩm!', 'error');
-                        });
+                        }
+                    }).catch(error => {
+                        this.disabled = false;
+                        this.innerHTML = originalContent;
+                        showToast('Có lỗi xảy ra khi thêm sản phẩm!', 'error');
+                    });
                         </text>
                 }
             });
