@@ -616,10 +616,6 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet]
-        
-        ///     Chuẩn bị dữ liệu hiển thị trang Checkout: đảm bảo user đăng nhập, xử lý voucher từ URL/spin wheel,
-        ///     tính toán toàn bộ fee và trả về <see cref="CheckoutViewModel"/>.
-        
         public IActionResult Checkout()
         {
             // Kiểm tra đăng nhập
@@ -629,13 +625,28 @@ namespace PerfumeStore.Controllers
                 return RedirectToAction("Login", "Auth");
             }
 
+            // 1. Lấy toàn bộ giỏ hàng
             var cart = GetCartFromSession();
+
+            // --- [THÊM MỚI TỪ ĐÂY] --- Lọc ra các sản phẩm đã được chọn để thanh toán
+            var selectedItemsJson = HttpContext.Session.GetString("CHECKOUT_SELECTED_ITEMS");
+            if (!string.IsNullOrEmpty(selectedItemsJson))
+            {
+                var selectedUrls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(selectedItemsJson) ?? new List<string>();
+                if (selectedUrls.Any())
+                {
+                    cart = cart.Where(i => selectedUrls.Contains(i.ImageUrl)).ToList();
+                }
+            }
+            // --- [KẾT THÚC THÊM MỚI] ---
 
             if (cart.Count == 0)
             {
-                TempData["Error"] = "Giỏ hàng của bạn đang trống";
+                TempData["Error"] = "Giỏ hàng của bạn đang trống hoặc bạn chưa chọn sản phẩm nào";
                 return RedirectToAction(nameof(Index));
             }
+
+            // ... (Phần code tính toán Voucher, VAT, ShippingFee bên dưới giữ nguyên) ...
 
             // Kiểm tra voucher từ URL parameter
             var voucherCode = Request.Query["voucherCode"].FirstOrDefault();
@@ -724,15 +735,7 @@ namespace PerfumeStore.Controllers
                 var order = await _checkoutFacade.PlaceOrderAsync(model, customerEmail, cart, appliedVoucher, total);
 
                 // --- ÁP DỤNG MẪU OBSERVER TẠI ĐÂY ---
-                var orderSubject = new OrderSubject();
-
-                // Đăng ký các bên liên quan
-                orderSubject.Attach(new EmailObserver());
-                orderSubject.Attach(new InventoryObserver());
-                orderSubject.Attach(new MembershipObserver());
-
-                // Kích hoạt đồng loạt: Gửi mail + Trừ kho + Tích điểm
-                orderSubject.Notify(order); 
+                _orderSubject.Notify(order);
                 // -----------------------------------
 
                 // Lưu thông tin đơn ra Session để hiển thị ở view
@@ -751,7 +754,16 @@ namespace PerfumeStore.Controllers
                 }
                 else
                 {
-                    cart.Clear(); SaveCartToSession(cart); HttpContext.Session.Remove("AppliedVoucher");
+                    // --- [CODE MỚI TẶNG THÊM DÁN VÀO ĐÂY] ---
+                    // Xóa những món ĐÃ THANH TOÁN khỏi giỏ hàng gốc
+                    var fullCart = GetCartFromSession();
+                    fullCart.RemoveAll(i => selectedUrls.Contains(i.ImageUrl));
+                    SaveCartToSession(fullCart);
+
+                    HttpContext.Session.Remove("AppliedVoucher");
+                    HttpContext.Session.Remove("CHECKOUT_SELECTED_ITEMS"); // Xóa session tạm
+                                                                           // ----------------------------------------
+
                     paymentContext.SetStrategy(new PerfumeStore.DesignPatterns.Strategy.CodPaymentStrategy());
                 }
 
@@ -921,19 +933,29 @@ namespace PerfumeStore.Controllers
         }
 
         [HttpGet]
-        
-        ///     Tính toán lại subtotal/discount/ship/VAT/total trên server và trả về JSON
-        ///     để UI cập nhật tức thời sau khi áp dụng/xóa voucher.
-        
         public IActionResult GetCheckoutSummary()
         {
             try
             {
                 var cart = GetCartFromSession();
+
+                // --- [THÊM MỚI] --- Lọc sản phẩm trước khi tính lại tiền
+                var selectedItemsJson = HttpContext.Session.GetString("CHECKOUT_SELECTED_ITEMS");
+                if (!string.IsNullOrEmpty(selectedItemsJson))
+                {
+                    var selectedUrls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(selectedItemsJson) ?? new List<string>();
+                    if (selectedUrls.Any())
+                    {
+                        cart = cart.Where(i => selectedUrls.Contains(i.ImageUrl)).ToList();
+                    }
+                }
+                // ------------------
+
                 var appliedVoucher = GetAppliedVoucher();
 
                 var subtotal = cart.Sum(item => item.LineTotal);
                 var discount = CalculateDiscount(subtotal, appliedVoucher);
+                // ... (Phần còn lại giữ nguyên)
                 var shippingFee = CalculateShippingFee(subtotal, appliedVoucher);
                 var vat = CalculateVAT(subtotal);
                 var total = subtotal - discount + shippingFee + vat;
