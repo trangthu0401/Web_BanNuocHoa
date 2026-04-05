@@ -451,46 +451,44 @@ namespace PerfumeStore.Areas.Admin.Controllers
                 return NotFound();
             }
 
-            // Cập nhật thông tin xử lý (Giữ nguyên logic cũ của nhóm)
+            // Cập nhật thông tin xử lý
             claim.Resolution = resolution;
             claim.ResolutionType = resolutionType;
             claim.AdminNotes = adminNotes;
             claim.ProcessedByAdmin = User.Identity?.Name;
 
-            // ==========================================
-            // ÁP DỤNG STATE PATTERN (Đã giải quyết xung đột Namespace)
-            // ==========================================
-            // LƯU Ý SƯ PHẠM: 
-            // Chúng ta chỉ truyền chuỗi (claim.Status) vào Pattern thay vì truyền nguyên Object.
-            // Điều này giúp State Pattern tuân thủ chặt chẽ Nguyên lý Đảo ngược Phụ thuộc (Dependency Inversion).
-            var warrantyContext = new PerfumeStore.DesignPatterns.State.WarrantyContext(claim.Status ?? "Chờ xử lý");
+            // =====================
+            // ÁP DỤNG STATE PATTERN
+            // =====================
+            // LƯU Ý: Đổi "Chờ xử lý" thành "Pending" để dự phòng khi Database bị Null
+            var warrantyContext = new PerfumeStore.DesignPatterns.State.WarrantyContext(claim.Status ?? "Pending");
 
             try
             {
-                // Thay vì gán chuỗi cứng nguy hiểm: claim.Status = status;
-                // Ta gọi các hàm chuyển đổi của State Pattern
-                if (status == "Processing" || status == "Đang xử lý")
+                // Giao diện Modal đã gửi lên value chuẩn (Processing, Completed, Rejected)
+                // Nên ta gỡ bỏ hoàn toàn các điều kiện kiểm tra tiếng Việt rườm rà.
+                if (status == "Processing")
                 {
                     warrantyContext.Approve(); // Chuyển sang Đang xử lý
                     if (claim.ProcessedDate == null) claim.ProcessedDate = DateTime.Now;
                 }
-                else if (status == "Completed" || status == "Hoàn tất")
+                else if (status == "Completed")
                 {
                     warrantyContext.Complete(); // Chuyển sang Hoàn tất
                     claim.CompletedDate = DateTime.Now;
                     if (claim.ProcessedDate == null) claim.ProcessedDate = DateTime.Now;
                 }
-                else if (status == "Rejected" || status == "Từ chối")
+                else if (status == "Rejected")
                 {
                     warrantyContext.Reject(); // Chuyển sang Từ chối
                 }
 
-                // Lấy trạng thái đã được Pattern xử lý và gán ngược lại cho DB Model
+                // Lấy trạng thái đã được Pattern xử lý (Pending, Processing, Completed, Rejected) và gán ngược lại
                 claim.Status = warrantyContext.GetStatusString();
 
                 // Lưu xuống DB
                 await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = $"Đã cập nhật yêu cầu bảo hành thành '{claim.Status}'.";
+                TempData["SuccessMessage"] = $"Đã cập nhật yêu cầu bảo hành thành công.";
             }
             catch (Exception ex)
             {
