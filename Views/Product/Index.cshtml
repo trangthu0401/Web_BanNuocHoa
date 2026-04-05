@@ -7,26 +7,25 @@
 
 <div class="container my-4">
     <div class="row">
-        <!-- Cột trái: Hình ảnh -->
         <div class="col-12 col-md-6">
             @{
                 var mainImage = Model?.ProductImages?.FirstOrDefault();
                 var productImages = Model?.ProductImages?.ToList() ?? new List<PerfumeStore.Models.ProductImage>();
             }
-            
+
             @if (mainImage != null && mainImage.ImageData != null)
             {
-                <img id="mainProductImage" 
-                     src="@Url.Action("GetImageById", "Product", new { imageId = mainImage.ImageId })" 
-                     class="img-fluid border mb-3" 
+                <img id="mainProductImage"
+                     src="@Url.Action("GetImageById", "Product", new { imageId = mainImage.ImageId })"
+                     class="img-fluid border mb-3"
                      alt="@(Model?.ProductName ?? "Sản phẩm")"
                      style="cursor: pointer;">
             }
             else
             {
-                <img id="mainProductImage" 
-                     src="~/images/ProductDetail/anh-1.webp" 
-                     class="img-fluid border mb-3" 
+                <img id="mainProductImage"
+                     src="~/images/ProductDetail/anh-1.webp"
+                     class="img-fluid border mb-3"
                      alt="@(Model?.ProductName ?? "Sản phẩm")"
                      style="cursor: pointer;">
             }
@@ -47,7 +46,6 @@
                 }
                 else
                 {
-                    <!-- Fallback images if no product images in database -->
                     <div class="col-3">
                         <img src="~/images/ProductDetail/anh-1.webp"
                              class="img-thumbnail w-100 thumbnail-img active"
@@ -62,7 +60,6 @@
             </div>
         </div>
 
-        <!-- Cột phải: Thông tin -->
         <div class="col-md-6">
             <h3>@(Model?.ProductName ?? "Sản phẩm")</h3>
             @{
@@ -71,13 +68,12 @@
                 var commentCount = comments.Count();
                 var soldCount = Model?.OrderDetails?.Sum(od => od.Quantity) ?? 0;
             }
-            
+
             <div class="rating d-flex align-items-center gap-2 mb-2">
                 @if (averageRating > 0)
                 {
                     <span class="badge bg-danger text-white">@averageRating.ToString("F1")</span>
-                    
-                    <!-- Sao đánh giá -->
+
                     <span class="rating-stars text-warning">
                         @for (int i = 1; i <= 5; i++)
                         {
@@ -95,25 +91,24 @@
                             }
                         }
                     </span>
-                    
+
                     <a href="#comments-section">(@commentCount đánh giá)</a>
                 }
                 else
                 {
                     <span class="text-muted">Chưa có đánh giá</span>
                 }
-                
+
                 @if (soldCount > 0)
                 {
                     <span>| Đã bán @soldCount</span>
                 }
             </div>
-            
-            <!-- Giá sản phẩm -->
+
             @{
                 // Tìm Liter có LiterPrice trùng với DiscountPrice, nếu không có thì chọn Liter đầu tiên
                 var firstLiter = Model?.Liters?.FirstOrDefault(l => Model.DiscountPrice.HasValue && l.LiterPrice == Model.DiscountPrice.Value)
-                    ?? Model?.Liters?.OrderBy(l => l.LiterNumber).FirstOrDefault();
+                ?? Model?.Liters?.OrderBy(l => l.LiterNumber).FirstOrDefault();
                 var displayPrice = firstLiter?.LiterPrice ?? (Model?.DiscountPrice ?? Model?.Price ?? 0);
                 var originalPrice = Model?.Price ?? 0;
             }
@@ -137,7 +132,24 @@
                     <h4 class="text-danger mb-0 fw-bold" id="productPriceDisplay">@displayPrice.ToString("N0") ₫</h4>
                 }
             </div>
-            
+
+            @if (ViewBag.PromotionNote != null)
+            {
+                <div class="alert alert-success mt-2 mb-3 shadow-sm" role="alert" style="border-left: 5px solid #198754; background-color: #f4fbf5;">
+                    <h6 class="alert-heading mb-1 text-success">
+                        <i class="bi bi-gift-fill me-2"></i><strong>Đặc quyền riêng cho sản phẩm này</strong>
+                    </h6>
+                    <p class="mb-0 text-dark" style="font-size: 0.95rem;">@ViewBag.PromotionNote</p>
+                </div>
+            }
+
+            @if (ViewBag.FinalPrice != null && ViewBag.FinalPrice != Model?.Price)
+            {
+                <div class="text-muted mb-3" style="font-size: 0.9rem;">
+                    <i class="bi bi-info-circle"></i> Giá thực tế áp dụng (đã tính ưu đãi theo loại):
+                    <strong class="text-primary">@string.Format("{0:N0} ₫", ViewBag.FinalPrice)</strong>
+                </div>
+            }
             @if (!string.IsNullOrEmpty(Model?.Introduction))
             {
                 <p class="text-muted">@Model.Introduction</p>
@@ -147,15 +159,20 @@
                 <li><strong>Thương hiệu:</strong> <a href="#" class="text-primary text-decoration-none">@(Model?.Brand?.BrandName ?? "Chưa cập nhật")</a></li>
                 @if (Model?.Categories?.Any() == true)
                 {
-                    <li><strong>Loại sản phẩm:</strong> 
+                    <li>
+                        <strong>Loại sản phẩm:</strong>
                         @foreach (var category in Model.Categories)
                         {
                             <a href="#" class="text-primary text-decoration-none">@category.CategoryName</a>
-                            @if (category != Model.Categories.Last()) { <text>, </text> }
+                            @if (category != Model.Categories.Last())
+                            {
+                                <text>, </text>
+                            }
                         }
                     </li>
                 }
-                <li><strong>Tình trạng:</strong> 
+                <li>
+                    <strong>Tình trạng:</strong>
                     @if (Model?.Stock > 0)
                     {
                         <span class="text-success">Còn hàng (@Model.Stock sản phẩm)</span>
@@ -180,21 +197,19 @@
                     var viewingType = ViewBag.ViewingType as string ?? "EDP";
                     var relatedProducts = ViewBag.RelatedProducts as List<PerfumeStore.Models.Product> ?? new List<PerfumeStore.Models.Product>();
                 }
-                
-                <!-- Chỉ hiển thị "Bạn đang xem" và sản phẩm liên quan nếu có sản phẩm liên quan -->
+
                 @if (relatedProducts.Any())
                 {
                     <p><strong>Bạn đang xem <span class="text-uppercase">@viewingType</span></strong></p>
 
-                    <!-- Loại sản phẩm -->
                     <div class="d-flex gap-2 mb-3">
                         @foreach (var relatedProduct in relatedProducts)
                         {
                             var relatedImage = relatedProduct.ProductImages?.FirstOrDefault();
-                            var relatedImageUrl = relatedImage != null 
-                                ? Url.Action("GetImageById", "Product", new { imageId = relatedImage.ImageId })
-                                : "/images/ProductDetail/anh-1.webp";
-                            
+                            var relatedImageUrl = relatedImage != null
+                            ? Url.Action("GetImageById", "Product", new { imageId = relatedImage.ImageId })
+                            : "/images/ProductDetail/anh-1.webp";
+
                             // Tính tên hiển thị: ProductName - SuggestionName
                             var displayName = relatedProduct.ProductName;
                             if (!string.IsNullOrEmpty(Model.SuggestionName) && relatedProduct.ProductName.Contains(Model.SuggestionName))
@@ -208,8 +223,8 @@
                             {
                                 displayName = relatedProduct.Concentration ?? relatedProduct.ProductName;
                             }
-                            
-                            <a href="@Url.Action("Index", "Product", new { id = relatedProduct.ProductId })" 
+
+                            <a href="@Url.Action("Index", "Product", new { id = relatedProduct.ProductId })"
                                class="option-btn text-decoration-none">
                                 <img src="@relatedImageUrl" alt="@relatedProduct.ProductName">
                                 <div>@displayName</div>
@@ -218,14 +233,13 @@
                     </div>
                 }
 
-                <!-- Dung tích -->
                 @if (Model?.Liters != null && Model.Liters.Any())
                 {
                     // Tìm Liter có LiterPrice trùng với DiscountPrice, nếu không có thì chọn Liter đầu tiên
                     var selectedLiter = Model.Liters.FirstOrDefault(l => Model.DiscountPrice.HasValue && l.LiterPrice == Model.DiscountPrice.Value)
-                        ?? Model.Liters.OrderBy(l => l.LiterNumber).FirstOrDefault();
+                    ?? Model.Liters.OrderBy(l => l.LiterNumber).FirstOrDefault();
                     var basePrice = Model.DiscountPrice ?? Model.Price;
-                    
+
                     <p>
                         <strong>Lựa chọn :</strong>
                         <span class="text-danger" id="selectedLiterDisplay">@(selectedLiter?.LiterNumber ?? 0) ml</span>
@@ -240,8 +254,8 @@
                         @foreach (var liter in Model.Liters.OrderBy(l => l.LiterNumber))
                         {
                             var isSelected = liter == selectedLiter;
-                            <button type="button" 
-                                    class="size-btn @(isSelected ? "active" : "")" 
+                            <button type="button"
+                                    class="size-btn @(isSelected ? "active" : "")"
                                     data-liter-id="@liter.LiterId"
                                     data-liter-number="@liter.LiterNumber"
                                     data-liter-price="@liter.LiterPrice"
@@ -297,17 +311,16 @@
                 @{
                     // Tính giá ban đầu: ưu tiên Liter có giá trùng với DiscountPrice, nếu không có thì chọn Liter đầu tiên
                     var defaultSelectedLiter = Model?.Liters?.FirstOrDefault(l => Model.DiscountPrice.HasValue && l.LiterPrice == Model.DiscountPrice.Value)
-                        ?? Model?.Liters?.OrderBy(l => l.LiterNumber).FirstOrDefault();
+                    ?? Model?.Liters?.OrderBy(l => l.LiterNumber).FirstOrDefault();
                     var initialLiterPrice = defaultSelectedLiter?.LiterPrice ?? (Model?.DiscountPrice ?? Model?.Price ?? 0);
                     var firstProductImage = Model?.ProductImages?.FirstOrDefault();
-                    var imageUrl = firstProductImage != null 
-                        ? Url.Action("GetImageById", "Product", new { imageId = firstProductImage.ImageId })
-                        : "/images/ProductDetail/anh-1.webp";
+                    var imageUrl = firstProductImage != null
+                    ? Url.Action("GetImageById", "Product", new { imageId = firstProductImage.ImageId })
+                    : "/images/ProductDetail/anh-1.webp";
                 }
-                <!-- Action buttons layout -->
                 <div class="product-actions mt-3">
                     <div class="d-flex gap-3 mb-3">
-                        <button id="addToCartBtn" 
+                        <button id="addToCartBtn"
                                 class="btn btn-outline-primary flex-fill py-2"
                                 data-product-id="@(Model?.ProductId ?? 0)"
                                 data-product-name="@(Model?.ProductName ?? "Sản phẩm")"
@@ -316,15 +329,15 @@
                                 style="border-radius: 8px; font-weight: 500;">
                             <i class="bi bi-cart-plus me-2"></i>Thêm vào giỏ hàng
                         </button>
-                        <button id="favoriteBtn" 
+                        <button id="favoriteBtn"
                                 class="btn btn-outline-danger d-flex align-items-center justify-content-center"
                                 onclick="testFavorite(@(Model?.ProductId ?? 0))"
                                 style="width: 50px; height: 42px; border-radius: 8px; border-width: 2px;">
                             <i id="testFavoriteIcon" class="bi bi-heart fs-5"></i>
                         </button>
                     </div>
-                    <button id="buyNowBtn" 
-                            class="btn btn-danger w-100 py-2" 
+                    <button id="buyNowBtn"
+                            class="btn btn-danger w-100 py-2"
                             style="border-radius: 8px; font-weight: 600; font-size: 1.1rem;"
                             data-product-id="@(Model?.ProductId ?? 0)"
                             data-product-name="@(Model?.ProductName ?? "Sản phẩm")"
@@ -339,7 +352,6 @@
         <hr class="divider" />
 
         <div class="row my-4 justify-content-center">
-            <!-- 🔹 Thông tin chi tiết -->
             <div class="row my-4 justify-content-center">
                 <div class="col-12 col-md-7">
                     <h4 class="fw-bold mb-3">Chi tiết về sản phẩm</h4>
@@ -438,7 +450,7 @@
                         @if (!string.IsNullOrEmpty(Model?.DescriptionNo1))
                         {
                             <div class="description-short mt-4 p-3 bg-light border rounded">
-                                <h6 class="fw-bold text-secondary mb-2">� Mô tcả sản phẩm</h6>
+                                <h6 class="fw-bold text-secondary mb-2">🏷️ Mô tả sản phẩm</h6>
                                 <p class="text-dark mb-0">@Model.DescriptionNo1</p>
                             </div>
                         }
@@ -493,7 +505,6 @@
         </div>
     </div>
 
-    <!-- Comment Section -->
     @await Component.InvokeAsync("Comment", new { productId = Model.ProductId })
 
 </div>
@@ -504,7 +515,7 @@
         const thumbnailImages = document.querySelectorAll('.thumbnail-img');
         const mainProductImage = document.getElementById('mainProductImage');
         const getImageByIdUrl = '@Url.Action("GetImageById", "Product")';
-        
+
         thumbnailImages.forEach(thumb => {
             thumb.addEventListener('click', function() {
                 // Xóa class active và border từ tất cả thumbnails
@@ -512,11 +523,11 @@
                     t.classList.remove('active');
                     t.style.border = '';
                 });
-                
+
                 // Thêm class active và border cho thumbnail được chọn
                 this.classList.add('active');
                 this.style.border = '2px solid #dc3545';
-                
+
                 // Cập nhật ảnh chính
                 if (mainProductImage) {
                     const imageId = this.dataset.imageId;
@@ -530,15 +541,15 @@
                 }
             });
         });
-        
+
         // Xử lý chọn dung tích (Liter)
         const literButtons = document.querySelectorAll('.size-btn[data-liter-id]');
         const selectedLiterDisplay = document.getElementById('selectedLiterDisplay');
         const addToCartBtn = document.getElementById('addToCartBtn');
         const productPriceDisplay = document.querySelector('.product-price');
-        
+
         let selectedLiter = null;
-        
+
         // Lấy Liter được chọn đầu tiên (có class active)
         const initialSelectedBtn = document.querySelector('.size-btn.active[data-liter-id]');
         if (initialSelectedBtn) {
@@ -548,36 +559,36 @@
                 price: parseFloat(initialSelectedBtn.dataset.literPrice)
             };
         }
-        
+
         // Xử lý click vào button dung tích
         literButtons.forEach(btn => {
             btn.addEventListener('click', function() {
                 // Xóa class active từ tất cả buttons
                 literButtons.forEach(b => b.classList.remove('active'));
-                
+
                 // Thêm class active cho button được chọn
                 this.classList.add('active');
-                
+
                 // Cập nhật selectedLiter
                 selectedLiter = {
                     id: this.dataset.literId,
                     number: parseInt(this.dataset.literNumber),
                     price: parseFloat(this.dataset.literPrice)
                 };
-                
+
                 // Cập nhật hiển thị "Lựa chọn"
                 if (selectedLiterDisplay) {
                     selectedLiterDisplay.textContent = selectedLiter.number + ' ml';
                 }
-                
+
                 // Cập nhật giá trong phần giá sản phẩm
                 const priceDisplayElement = document.getElementById('productPriceDisplay');
                 const originalPriceDisplayElement = document.getElementById('originalPriceDisplay');
-                
+
                 if (priceDisplayElement) {
                     priceDisplayElement.textContent = selectedLiter.price.toLocaleString('vi-VN') + ' ₫';
                 }
-                
+
                 // Nếu có giá gốc và giá Liter nhỏ hơn, hiển thị giá gốc gạch ngang
                 const basePrice = parseFloat(this.dataset.basePrice) || 0;
                 if (originalPriceDisplayElement) {
@@ -602,7 +613,7 @@
                         }
                     }
                 }
-                
+
                 // Cập nhật giá trong button "Thêm vào giỏ hàng" và "Mua ngay"
                 if (addToCartBtn) {
                     addToCartBtn.dataset.productPrice = selectedLiter.price;
@@ -611,7 +622,7 @@
                 if (buyNowBtn) {
                     buyNowBtn.dataset.productPrice = selectedLiter.price;
                 }
-                
+
                 // Cập nhật phần mô tả giá/ml
                 const priceInfo = this.closest('.product-options')?.querySelector('p strong');
                 if (priceInfo && selectedLiter.number > 0) {
@@ -623,16 +634,16 @@
                 }
             });
         });
-        
+
         if (addToCartBtn) {
             addToCartBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                
+
                 const productId = parseInt(this.dataset.productId) || 0;
                 const productName = this.dataset.productName || 'Sản phẩm';
                 const price = parseFloat(this.dataset.productPrice) || 0;
                 const imageUrl = this.dataset.imageUrl || '/images/placeholder.jpg';
-                
+
                 // Disable button temporarily
                 this.disabled = true;
                 this.classList.add('disabled');
@@ -662,7 +673,7 @@
                 if (token) {
                     formData.append('__RequestVerificationToken', token);
                 }
-                
+
                 // Send AJAX request
                 fetch('/Cart/AddToCart', {
                     method: 'POST',
@@ -678,12 +689,12 @@
                         this.innerHTML = '<i class="bi bi-check-circle me-2"></i>Đã thêm!';
                         this.classList.remove('btn-outline-secondary');
                         this.classList.add('btn-success');
-                        
+
                         // Update cart count if available
                         if (typeof updateCartCount === 'function') {
                             updateCartCount(data.cartCount);
                         }
-                        
+
                         // Show toast notification
                         showToast(data.message || 'Đã thêm sản phẩm vào giỏ hàng!', 'success');
                     } else {
@@ -714,14 +725,14 @@
         if (buyNowBtn) {
             buyNowBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                
+
                 @if (!User.Identity.IsAuthenticated)
                 {
-                    <text>
-                    // Chưa đăng nhập, redirect đến trang Login
-                    window.location.href = '@Url.Action("Login", "Auth")';
-                    return;
-                    </text>
+                        <text>
+                        // Chưa đăng nhập, redirect đến trang Login
+                        window.location.href = '@Url.Action("Login", "Auth")';
+                        return;
+                        </text>
                 }
                 else
                 {
@@ -778,27 +789,20 @@
                             // Hiển thị lỗi
                             this.disabled = false;
                             this.innerHTML = originalContent;
-                            showToast(data.message || 'Có lỗi xảy ra khi thêm sản phẩm!', 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error adding to cart:', error);
-                        this.disabled = false;
-                        this.innerHTML = originalContent;
-                        showToast('Có lỗi xảy ra khi thêm sản phẩm!', 'error');
-                    });
-                    </text>
+                            showToast('Có lỗi xảy ra khi thêm sản phẩm!', 'error');
+                        });
+                        </text>
                 }
             });
         }
     });
-    
+
     // Toast notification function
     function showToast(message, type = 'info') {
         // Remove existing toasts
         const existingToasts = document.querySelectorAll('.toast-notification');
         existingToasts.forEach(toast => toast.remove());
-        
+
         // Create toast element
         const toast = document.createElement('div');
         toast.className = `toast-notification alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show`;
@@ -810,15 +814,15 @@
             min-width: 300px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         `;
-        
+
         toast.innerHTML = `
             <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        
+
         document.body.appendChild(toast);
-        
+
         // Auto remove after 3 seconds
         setTimeout(() => {
             if (toast.parentNode) {
@@ -827,108 +831,107 @@
         }, 3000);
     }
 </script>
-<script
->
-// Test favorite functionality
-function testFavorite(productId) {
-    console.log('Testing favorite for product:', productId);
-    
-    // Check if user is logged in
-    @if (User.Identity.IsAuthenticated)
-    {
-        <text>
-        console.log('User is logged in, proceeding...');
-        
-        var icon = $('#testFavoriteIcon');
-        var btn = $('#favoriteBtn');
-        var isFavorite = icon.hasClass('bi-heart-fill');
-        
-        console.log('Current favorite status:', isFavorite);
-        
-        if (isFavorite) {
-            // Remove from favorites
-            $.ajax({
-                url: '/Favorites/RemoveFromFavorites',
-                type: 'POST',
-                data: { productId: productId },
-                success: function(response) {
-                    console.log('Remove response:', response);
-                    if (response.success) {
-                        icon.removeClass('bi-heart-fill').addClass('bi-heart');
-                        btn.removeClass('btn-danger').addClass('btn-outline-danger');
-                        alert('Đã xóa khỏi yêu thích!');
-                    } else {
-                        alert('Lỗi: ' + response.message);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Remove error:', error);
-                    console.error('Response:', xhr.responseText);
-                    alert('Có lỗi xảy ra khi xóa khỏi yêu thích!');
-                }
-            });
-        } else {
-            // Add to favorites
-            $.ajax({
-                url: '/Favorites/AddToFavorites',
-                type: 'POST',
-                data: { productId: productId },
-                success: function(response) {
-                    console.log('Add response:', response);
-                    if (response.success) {
-                        icon.removeClass('bi-heart').addClass('bi-heart-fill');
-                        btn.removeClass('btn-outline-danger').addClass('btn-danger');
-                        alert('Đã thêm vào yêu thích!');
-                    } else {
-                        alert('Lỗi: ' + response.message);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Add error:', error);
-                    console.error('Response:', xhr.responseText);
-                    alert('Có lỗi xảy ra khi thêm vào yêu thích!');
-                }
-            });
-        }
-        </text>
-    }
-    else
-    {
-        <text>
-        console.log('User not logged in');
-        alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích!');
-        window.location.href = '@Url.Action("Auth", "Auth")';
-        </text>
-    }
-}
+<script>
+    // Test favorite functionality
+    function testFavorite(productId) {
+        console.log('Testing favorite for product:', productId);
 
-// Check favorite status on page load
-$(document).ready(function() {
-    @if (User.Identity.IsAuthenticated)
-    {
-        <text>
-        var productId = @(Model?.ProductId ?? 0);
-        console.log('Checking favorite status for product:', productId);
-        
-        $.ajax({
-            url: '/Favorites/CheckFavorite',
-            type: 'GET',
-            data: { productId: productId },
-            success: function(response) {
-                console.log('Check favorite response:', response);
+        // Check if user is logged in
+        @if (User.Identity.IsAuthenticated)
+        {
+                <text>
+                console.log('User is logged in, proceeding...');
+
                 var icon = $('#testFavoriteIcon');
-                var btn = $('#testFavoriteBtn');
-                
-                if (response.isFavorite) {
-                    icon.removeClass('bi-heart').addClass('bi-heart-fill');
-                    btn.removeClass('btn-outline-danger').addClass('btn-danger');
+                var btn = $('#favoriteBtn');
+                var isFavorite = icon.hasClass('bi-heart-fill');
+
+                console.log('Current favorite status:', isFavorite);
+
+                if (isFavorite) {
+                    // Remove from favorites
+                    $.ajax({
+                        url: '/Favorites/RemoveFromFavorites',
+                        type: 'POST',
+                        data: { productId: productId },
+                        success: function(response) {
+                            console.log('Remove response:', response);
+                            if (response.success) {
+                                icon.removeClass('bi-heart-fill').addClass('bi-heart');
+                                btn.removeClass('btn-danger').addClass('btn-outline-danger');
+                                alert('Đã xóa khỏi yêu thích!');
+                            } else {
+                                alert('Lỗi: ' + response.message);
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Remove error:', error);
+                            console.error('Response:', xhr.responseText);
+                            alert('Có lỗi xảy ra khi xóa khỏi yêu thích!');
+                        }
+                    });
+                } else {
+                    // Add to favorites
+                    $.ajax({
+                        url: '/Favorites/AddToFavorites',
+                        type: 'POST',
+                        data: { productId: productId },
+                        success: function(response) {
+                            console.log('Add response:', response);
+                            if (response.success) {
+                                icon.removeClass('bi-heart').addClass('bi-heart-fill');
+                                btn.removeClass('btn-outline-danger').addClass('btn-danger');
+                                alert('Đã thêm vào yêu thích!');
+                            } else {
+                                alert('Lỗi: ' + response.message);
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Add error:', error);
+                            console.error('Response:', xhr.responseText);
+                            alert('Có lỗi xảy ra khi thêm vào yêu thích!');
+                        }
+                    });
                 }
-            },
-            error: function(xhr, status, error) {
-                console.error('Check favorite error:', error);
-            }
-        });
-        </text>
+                </text>
+        }
+        else
+        {
+                <text>
+                console.log('User not logged in');
+                alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích!');
+                window.location.href = '@Url.Action("Auth", "Auth")';
+                </text>
+        }
     }
-});
+
+    // Check favorite status on page load
+    $(document).ready(function() {
+        @if (User.Identity.IsAuthenticated)
+        {
+                <text>
+                var productId = @(Model?.ProductId ?? 0);
+                console.log('Checking favorite status for product:', productId);
+
+                $.ajax({
+                    url: '/Favorites/CheckFavorite',
+                    type: 'GET',
+                    data: { productId: productId },
+                    success: function(response) {
+                        console.log('Check favorite response:', response);
+                        var icon = $('#testFavoriteIcon');
+                        var btn = $('#testFavoriteBtn');
+
+                        if (response.isFavorite) {
+                            icon.removeClass('bi-heart').addClass('bi-heart-fill');
+                            btn.removeClass('btn-outline-danger').addClass('btn-danger');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Check favorite error:', error);
+                    }
+                });
+                </text>
+        }
+    });
 </script>
