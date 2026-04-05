@@ -1,5 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using PerfumeStore.Models;
+using PerfumeStore.Services; // Thêm using này để nhận diện IEmailService
 
 namespace PerfumeStore.DesignPatterns.Observer
 {
@@ -27,14 +30,13 @@ namespace PerfumeStore.DesignPatterns.Observer
     // 1. Giao diện người quan sát (Observer)
     public interface IObserver
     {
-        void Update(string message);
+        void Update(Order order);
     }
 
     // 2. Chủ thể (Subject) - Quản lý danh sách các Observer đang theo dõi nó
     public class OrderSubject
     {
-        private List<IObserver> _observers = new List<IObserver>();
-        public string OrderStatus { get; private set; }
+        private List<IOrderObserver> _observers = new List<IOrderObserver>();
 
         // Đăng ký nhận thông báo (Subscribe)
         public void Attach(IObserver observer) => _observers.Add(observer);
@@ -50,12 +52,31 @@ namespace PerfumeStore.DesignPatterns.Observer
                 observer.Update($"HỆ THỐNG THÔNG BÁO: {OrderStatus}");
             }
         }
+    }
+
+
+    public class EmailObserver : IOrderObserver
+    {
+        private readonly IEmailService _emailService;
 
         // Logic nghiệp vụ: Đổi trạng thái -> Tự động kích hoạt chuỗi gửi tin
         public void ChangeStatus(string newStatus)
         {
-            OrderStatus = newStatus;
-            Notify();
+            _emailService = emailService;
+        }
+
+        public void Update(Order order)
+        {
+            // [SỬA Ở ĐÂY]: Lấy email của khách hàng (nếu có) hoặc dùng 1 email mặc định/test
+            string toEmail = order.Customer?.Email ?? "test@example.com";
+            string subject = $"Xác nhận đơn hàng #{order.OrderId}";
+            string body = $"Cảm ơn bạn đã đặt hàng. Đơn hàng #{order.OrderId} của bạn với tổng tiền {order.TotalAmount:N0}đ đã được xác nhận.";
+
+            // [SỬA Ở ĐÂY]: Gọi đúng tên hàm 'SendSimpleTextEmailAsync' có sẵn trong IEmailService.
+            // Dùng dấu '_' (discard) vì Update() là hàm void đồng bộ (sync), còn gửi mail là bất đồng bộ (async).
+            _ = _emailService.SendSimpleTextEmailAsync(toEmail, subject, body);
+
+            Console.WriteLine($"[EmailService] Đã kích hoạt lệnh gửi mail thực tế tới {toEmail} cho đơn #{order.OrderId}.");
         }
     }
 
@@ -66,17 +87,17 @@ namespace PerfumeStore.DesignPatterns.Observer
     // 3. Observer gửi Email
     public class EmailObserver : IObserver
     {
-        public void Update(string message)
+        public void Update(Order order)
         {
             // Trong dự án thực tế, chỗ này sẽ gọi _emailService.SendEmailAsync(...)
             Console.WriteLine($"[Email Service Observer]: Đang xử lý gửi Email... '{message}'");
         }
     }
 
-    // 4. Observer ghi Log hệ thống
-    public class LoggerObserver : IObserver
+
+    public class MembershipObserver : IOrderObserver
     {
-        public void Update(string message)
+        public void Update(Order order)
         {
             // Trong dự án thực tế, chỗ này có thể lưu file .txt hoặc đẩy lên Kibana/ElasticSearch
             Console.WriteLine($"[System Log Observer]: Đã ghi nhận sự kiện '{message}' vào CSDL.");

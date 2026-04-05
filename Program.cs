@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using PerfumeStore.Models;
 using PerfumeStore.Services;
 using PerfumeStore.Areas.Admin.Models;
