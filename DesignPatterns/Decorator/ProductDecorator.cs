@@ -49,7 +49,7 @@ namespace PerfumeStore.DesignPatterns.Decorator
 
         public override decimal GetPrice()
         {
-            return base.GetPrice() + 50000; // Tiền gốc + 50k tiền gói quà
+            return base.GetPrice() + 50000; 
         }
     }
 
@@ -64,7 +64,7 @@ namespace PerfumeStore.DesignPatterns.Decorator
 
         public override decimal GetPrice()
         {
-            return base.GetPrice() + 100000; // Tiền gốc + 100k tiền khắc tên
+            return base.GetPrice() + 100000; 
         }
     }
 }

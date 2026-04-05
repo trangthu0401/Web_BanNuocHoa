@@ -88,6 +88,11 @@ namespace PerfumeStore
             builder.Services.AddScoped<PerfumeStore.DesignPatterns.Observer.IOrderObserver, PerfumeStore.DesignPatterns.Observer.EmailObserver>();
             builder.Services.AddScoped<PerfumeStore.DesignPatterns.Observer.IOrderObserver, PerfumeStore.DesignPatterns.Observer.InventoryObserver>();
             builder.Services.AddScoped<PerfumeStore.DesignPatterns.Observer.IOrderObserver, PerfumeStore.DesignPatterns.Observer.MembershipObserver>();
+            // Đăng ký EmailService (để gửi mail thật)
+            builder.Services.AddScoped<PerfumeStore.Services.IEmailService, PerfumeStore.Services.EmailService>();
+
+            // Đăng ký các thành phần Observer
+            builder.Services.AddScoped<PerfumeStore.DesignPatterns.Observer.OrderSubject>();
             builder.Services.AddScoped(provider => {
                 var subject = new PerfumeStore.DesignPatterns.Observer.OrderSubject();
                 var observers = provider.GetServices<PerfumeStore.DesignPatterns.Observer.IOrderObserver>();
