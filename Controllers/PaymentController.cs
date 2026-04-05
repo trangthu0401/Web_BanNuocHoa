@@ -347,23 +347,14 @@ namespace PerfumeStore.Controllers
                     TempData["Error"] = "Không tìm thấy đơn hàng";
                     return RedirectToAction("Index", "Cart");
                 }
-                
+
                 // Tạo danh sách items cho PayOS
-                List<ItemData> items = new List<ItemData>();
-                foreach (var detail in order.OrderDetails)
+                List<ItemData> items = new List<ItemData>
                 {
-                    items.Add(new ItemData(
-                        detail.Product.ProductName,
-                        detail.Quantity ?? 1,
-                        (int)detail.UnitPrice
-                    ));
-                }
-                
-                // Nếu không có items, thêm item mặc định
-                if (items.Count == 0)
-                {
-                    items.Add(new ItemData("Đơn hàng #" + orderId, 1, (int)amount));
-                }
+                    // Gộp toàn bộ thành 1 item duy nhất đại diện cho tổng hóa đơn
+                    // Điều này giúp vượt qua cơ chế Validate tổng tiền cực kỳ khắt khe của PayOS
+                    new ItemData($"Thanh toan don hang {orderId}", 1, (int)amount)
+                };
 
                 // Get the current request's base URL
                 var request = _httpContextAccessor.HttpContext.Request;

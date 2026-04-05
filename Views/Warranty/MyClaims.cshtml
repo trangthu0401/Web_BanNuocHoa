@@ -50,20 +50,29 @@
                 {
                     var statusBadgeClass = claim.Status switch
                     {
-                        "Chờ xử lý" => "status-pending",
-                        "Đang xử lý" => "status-processing",
-                        "Hoàn thành" => "status-completed",
-                        "Từ chối" => "status-rejected",
+                        "Pending" => "status-pending",
+                        "Processing" => "status-processing",
+                        "Completed" => "status-completed",
+                        "Rejected" => "status-rejected",
                         _ => "status-default"
                     };
 
                     var statusIcon = claim.Status switch
                     {
-                        "Chờ xử lý" => "fa-clock",
-                        "Đang xử lý" => "fa-spinner",
-                        "Hoàn thành" => "fa-check-circle",
-                        "Từ chối" => "fa-times-circle",
+                        "Pending" => "fa-clock",
+                        "Processing" => "fa-spinner",
+                        "Completed" => "fa-check-circle",
+                        "Rejected" => "fa-times-circle",
                         _ => "fa-info-circle"
+                    };
+
+                    var displayStatus = claim.Status switch
+                    {
+                        "Pending" => "Chờ xử lý",
+                        "Processing" => "Đang xử lý",
+                        "Completed" => "Hoàn thành",
+                        "Rejected" => "Từ chối",
+                        _ => claim.Status
                     };
 
                     <div class="claim-card card mb-3">
@@ -75,7 +84,7 @@
                                 <small class="text-muted">Mã yêu cầu: <strong>@claim.ClaimCode</strong></small>
                             </div>
                             <span class="status-badge @statusBadgeClass">
-                                <i class="fas @statusIcon me-1"></i>@claim.Status
+                                <i class="fas @statusIcon me-1"></i>@displayStatus
                             </span>
                         </div>
                         <div class="card-body">

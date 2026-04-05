@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using PerfumeStore.DesignPatterns.Prototype;
 
 namespace PerfumeStore.Areas.Admin.Controllers
 {
@@ -185,26 +186,53 @@ namespace PerfumeStore.Areas.Admin.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: Admin/Coupon/Duplicate/5
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Duplicate(int id)
+        // GET: Admin/Coupon/Clone/5
+        public async Task<IActionResult> Clone(int? id)
         {
-            var originalCoupon = await _context.Coupons.FirstOrDefaultAsync(c => c.CouponId == id);
+            if (id == null) return NotFound();
+
+            var originalCoupon = await _context.Coupons.FindAsync(id);
             if (originalCoupon == null) return NotFound();
 
-            // --- ÁP DỤNG MẪU PROTOTYPE TẠI ĐÂY ---
-            // Gọi hàm nhân bản từ đối tượng gốc
-            var clonedCoupon = originalCoupon.DuplicateForNewSeason();
-            
-            // System sẽ tự sinh mã mới để đảm bảo valid và tránh trùng lặp
-            clonedCoupon.Code = await GenerateUniqueCodeAsync();
+            // 1. ÁP DỤNG PROTOTYPE PATTERN (Đưa dữ liệu vào Trạm trung chuyển)
+            var prototypeObj = new PerfumeStore.DesignPatterns.Prototype.DiscountProgram
+            {
+                ProgramId = originalCoupon.CouponId,
+                DiscountName = originalCoupon.Code,
+                DiscountRate = originalCoupon.DiscountAmount ?? 0,
+                StartDate = originalCoupon.CreatedDate ?? DateTime.Now,
+                EndDate = originalCoupon.ExpiryDate ?? DateTime.Now.AddDays(30)
+            };
 
-            _context.Coupons.Add(clonedCoupon);
-            await _context.SaveChangesAsync();
+            // 2. KÍCH HOẠT NHÂN BẢN TỪ BÁO CÁO
+            // Tạo một mã ngẫu nhiên 30 ký tự chuẩn hệ thống thay vì dùng chữ "_COPY"
+            string newValidCode = await GenerateUniqueCodeAsync();
 
-            TempData["SuccessMessage"] = "Nhân bản coupon thành công!";
-            return RedirectToAction(nameof(Index));
+            var clonedPrototype = prototypeObj.DuplicateForNewSeason(
+                newValidCode,
+                DateTime.Now,
+                DateTime.Now.AddDays(30)
+            );
+
+            // 3. TRẢ DỮ LIỆU VỀ COUPON ĐỂ HIỂN THỊ
+            var newCoupon = new Coupon
+            {
+                Code = clonedPrototype.DiscountName, // Đã là mã 30 ký tự hợp lệ
+                DiscountAmount = clonedPrototype.DiscountRate, // Copy số tiền giảm
+                CreatedDate = clonedPrototype.StartDate,
+                ExpiryDate = clonedPrototype.EndDate,
+                IsUsed = false, // Trạng thái chưa sử dụng
+                CouponId = 0,
+                CustomerId = originalCoupon.CustomerId // Tùy chọn: Copy luôn khách hàng được gán
+            };
+
+            // 4. GỌI HÀM NÀY ĐỂ TRÁNH LỖI VIEW (Render dropdown chọn khách hàng)
+            await PopulateCustomerOptionsAsync(newCoupon.CustomerId);
+
+            // Hiện thông báo nhỏ gọn để Admin biết họ đang ở chế độ nhân bản
+            TempData["SuccessMessage"] = "Đã nhân bản dữ liệu! Hệ thống đã tạo mã Code mới, bạn có thể kiểm tra và lưu lại.";
+
+            return View("Create", newCoupon);
         }
 
         // --- Private helper methods ---
