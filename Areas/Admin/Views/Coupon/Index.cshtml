@@ -77,18 +77,18 @@
                                 <td>@item.ExpiryDate?.ToString("dd/MM/yyyy")</td>
                                 <td>@item.UsedDate?.ToString("dd/MM/yyyy")</td>
                                 <td>@item.DiscountAmount?.ToString("N0") ₫</td>
-                                <td class="d-flex justify-content-center align-items-center gap-1">
-                                    <a asp-action="Edit" asp-route-id="@item.CouponId" class="btn btn-primary btn-sm">
-                                        <i class="bi bi-pencil-square"></i> Sửa
-                                    </a>
-                                    <form asp-action="Duplicate" asp-route-id="@item.CouponId" method="post" class="d-inline mb-0" onsubmit="return confirm('Bạn có chắc chắn muốn nhân bản khuyến mãi này?');">
-                                        <button type="submit" class="btn btn-info btn-sm text-white">
-                                            <i class="bi bi-copy"></i> Nhân bản
-                                        </button>
-                                    </form>
-                                    <a asp-action="Delete" asp-route-id="@item.CouponId" class="btn btn-danger btn-sm">
-                                        <i class="bi bi-trash"></i> Xóa
-                                    </a>
+                                <td class="text-center align-middle">
+                                    <div class="d-flex justify-content-center gap-2 flex-nowrap">
+                                        <a asp-action="Edit" asp-route-id="@item.CouponId" class="btn btn-primary btn-sm" title="Sửa">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+                                        <a asp-action="Clone" asp-route-id="@item.CouponId" class="btn btn-success btn-sm" title="Nhân bản">
+                                            <i class="bi bi-copy"></i>
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@item.CouponId" class="btn btn-danger btn-sm" title="Xóa">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         }

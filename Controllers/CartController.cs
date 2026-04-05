@@ -25,7 +25,7 @@ namespace PerfumeStore.Controllers
         private readonly IWarrantyService _warrantyService;
         private readonly PerfumeStore.DesignPatterns.Observer.OrderSubject _orderSubject;
 
-        public CartController(ILogger<CartController> logger, IWebHostEnvironment env, IOrderService orderService, PerfumeStoreContext context, IWarrantyService warrantyService, PerfumeStore.DesignPatterns.Facade.ICheckoutFacade checkoutFacade, PerfumeStore.DesignPatterns.Observer.OrderSubject orderSubject)
+        public CartController(ILogger<CartController> logger, IWebHostEnvironment env, IOrderService orderService, PerfumeStoreContext context, IWarrantyService warrantyService, PerfumeStore.DesignPatterns.Facade.ICheckoutFacade checkoutFacade)
         {
             _logger = logger;
             _env = env;
@@ -33,7 +33,6 @@ namespace PerfumeStore.Controllers
             _context = context;
             _warrantyService = warrantyService;
             _checkoutFacade = checkoutFacade;
-            _orderSubject = orderSubject;
         }
 
         
@@ -701,17 +700,7 @@ namespace PerfumeStore.Controllers
         public async Task<IActionResult> ProcessCheckout(CheckoutViewModel model)
         {
             var cart = GetCartFromSession();
-
-            var selectedItemsJson = HttpContext.Session.GetString("CHECKOUT_SELECTED_ITEMS");
-            var selectedUrls = new List<string>();
-            if (!string.IsNullOrEmpty(selectedItemsJson))
-            {
-                selectedUrls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(selectedItemsJson) ?? new List<string>();
-                if (selectedUrls.Any())
-                {
-                    cart = cart.Where(i => selectedUrls.Contains(i.ImageUrl)).ToList();
-                }
-            }
+            if (cart.Count == 0) return RedirectToAction(nameof(Index));
 
             if (cart.Count == 0) return RedirectToAction(nameof(Index));
 
@@ -731,13 +720,25 @@ namespace PerfumeStore.Controllers
                 var total = subtotal - discount + shippingFee + CalculateVAT(subtotal);
 
                 // --- ÁP DỤNG FACADE PATTERN ---
-
+                // Che giấu toàn bộ logic phức tạp chọc xuống DB
                 var order = await _checkoutFacade.PlaceOrderAsync(model, customerEmail, cart, appliedVoucher, total);
 
-                // --- ÁP DỤNG MẪU OBSERVER TẠI ĐÂY ---
-                _orderSubject.Notify(order);
-                // -----------------------------------
+                // ======================================================================
+                // ÁP DỤNG OBSERVER PATTERN: KÍCH HOẠT CHUỖI SỰ KIỆN GỬI EMAIL VÀ GHI LOG
+                // ======================================================================
+                // Khởi tạo Subject (Chủ thể - Đơn hàng)
+                var orderSubject = new PerfumeStore.DesignPatterns.Observer.OrderSubject();
 
+                // Đăng ký (Attach) các dịch vụ phụ trợ vào luồng theo dõi đơn hàng
+                orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.EmailObserver());
+                orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.LoggerObserver());
+
+                // Chỉ với 1 câu lệnh cập nhật trạng thái, tất cả các Observer sẽ đồng loạt chạy
+                // Không làm phình to code của Controller chính.
+                orderSubject.ChangeStatus($"Đơn hàng #{order.OrderId} trị giá {order.TotalAmount:N0}đ của {model.CustomerName} đã được tạo!");
+                // ======================================================================
+
+                // Lưu thông tin đơn ra Session để hiển thị ở view
                 var orderInfo = new { OrderId = order.OrderId.ToString(), OrderDate = order.OrderDate, Items = cart.ToList(), Total = order.TotalAmount };
                 HttpContext.Session.SetString("LAST_ORDER", System.Text.Json.JsonSerializer.Serialize(orderInfo));
 
@@ -753,16 +754,7 @@ namespace PerfumeStore.Controllers
                 }
                 else
                 {
-                    // --- [CODE MỚI TẶNG THÊM DÁN VÀO ĐÂY] ---
-                    // Xóa những món ĐÃ THANH TOÁN khỏi giỏ hàng gốc
-                    var fullCart = GetCartFromSession();
-                    fullCart.RemoveAll(i => selectedUrls.Contains(i.ImageUrl));
-                    SaveCartToSession(fullCart);
-
-                    HttpContext.Session.Remove("AppliedVoucher");
-                    HttpContext.Session.Remove("CHECKOUT_SELECTED_ITEMS"); // Xóa session tạm
-                                                                           // ----------------------------------------
-
+                    cart.Clear(); SaveCartToSession(cart); HttpContext.Session.Remove("AppliedVoucher");
                     paymentContext.SetStrategy(new PerfumeStore.DesignPatterns.Strategy.CodPaymentStrategy());
                 }
 
