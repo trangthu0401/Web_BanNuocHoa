@@ -1,9 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using PerfumeStore.DesignPatterns.State;
 using PerfumeStore.Models;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 using System.Linq;
+using System.Security.Claims;
 
 namespace PerfumeStore.Controllers
 {
@@ -34,7 +35,7 @@ namespace PerfumeStore.Controllers
             // Lấy danh sách bảo hành của khách hàng
             var warranties = await _db.Warranties
                 .Include(w => w.WarrantyClaims)
-                .Where(w => w.CustomerId == customerId && w.Status == "Đang bảo hành")
+                .Where(w => w.CustomerId == customerId && w.Status == "Active")
                 .OrderByDescending(w => w.StartDate)
                 .ToListAsync();
 
@@ -159,10 +160,7 @@ namespace PerfumeStore.Controllers
             // ÁP DỤNG STATE PATTERN: Khởi tạo trạng thái gốc
             // ==========================================
             // Khởi tạo Context với chuỗi mặc định
-            var warrantyContext = new PerfumeStore.DesignPatterns.State.WarrantyContext("Chờ xử lý");
-
-            // Set trạng thái chuẩn là Pending
-            warrantyContext.SetState(new PerfumeStore.DesignPatterns.State.PendingState());
+            var warrantyContext = new PerfumeStore.DesignPatterns.State.WarrantyContext(new PendingState());
 
             // Lấy chuỗi trạng thái chuẩn từ Pattern để gán vào Entity
             warrantyClaim.Status = warrantyContext.GetStatusString();
