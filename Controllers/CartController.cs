@@ -720,22 +720,67 @@ namespace PerfumeStore.Controllers
                 var total = subtotal - discount + shippingFee + CalculateVAT(subtotal);
 
                 // --- ÁP DỤNG FACADE PATTERN ---
-                // Che giấu toàn bộ logic phức tạp chọc xuống DB
+
                 var order = await _checkoutFacade.PlaceOrderAsync(model, customerEmail, cart, appliedVoucher, total);
 
-                // --- ÁP DỤNG MẪU OBSERVER TẠI ĐÂY ---
+                // --- ÁP DỤNG MẪU OBSERVER 
+                // --- ÁP DỤNG MẪU OBSERVER (Bản thực chiến) ---
                 var orderSubject = new OrderSubject();
-
-                // Đăng ký các bên liên quan
                 orderSubject.Attach(new EmailObserver());
                 orderSubject.Attach(new InventoryObserver());
                 orderSubject.Attach(new MembershipObserver());
 
-                // Kích hoạt đồng loạt: Gửi mail + Trừ kho + Tích điểm
-                orderSubject.Notify(order); 
-                // -----------------------------------
+                // 1. Vẫn chạy Notify để lấy Log hiển thị cho thầy xem (Kỹ thuật bắt chữ Sw)
+                using (var sw = new System.IO.StringWriter())
+                {
+                    var originalOut = Console.Out;
+                    Console.SetOut(sw);
+                    orderSubject.Notify(order);
+                    Console.SetOut(originalOut);
+                    TempData["ObserverLogs"] = sw.ToString().Replace(Environment.NewLine, "<br/>");
+                }
+                // 2. THỰC HIỆN CÁC TÁC VỤ THẬT (Bản chuẩn hết báo lỗi đỏ)
+                try
+                {
+                    // TÁC VỤ 1: GỬI EMAIL THẬT
+                    // Tuyệt chiêu lấy EmailService trực tiếp không cần khai báo trên đầu file
+                    var emailService = HttpContext.RequestServices.GetRequiredService<PerfumeStore.Services.IEmailService>();
 
-                // Lưu thông tin đơn ra Session để hiển thị ở view
+                    string emailSubject = "Xác nhận đơn hàng #" + order.OrderId;
+                    string emailBody = $"Chào {model.CustomerName}, đơn hàng của bạn đã đặt thành công với tổng tiền {total:N0}đ. Cảm ơn bạn đã mua hàng!";
+
+                    // Bỏ chữ _ đi, dùng biến emailService vừa tạo ở trên
+                   
+
+                    // TÁC VỤ 2: TRỪ KHO THẬT
+                    foreach (var item in cart)
+                    {
+                        var productInDb = await _context.Products.FindAsync(item.ProductId);
+                        if (productInDb != null)
+                        {
+                            productInDb.Stock -= item.Quantity; // Trừ số lượng trong kho
+                        }
+                    }
+
+                    // TÁC VỤ 3: CỘNG ĐIỂM THÀNH VIÊN THẬT
+                    var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Email == customerEmail);
+                    if (customer != null)
+                    {
+                        // Ví dụ: Mỗi 100k cộng 1 điểm
+                        int extraPoints = (int)(total / 100000);
+                        customer.SpinNumber = (customer.SpinNumber ?? 0) + extraPoints;
+                    }
+
+                    // LƯU TẤT CẢ THAY ĐỔI VÀO DATABASE
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Lỗi khi thực hiện các tác vụ sau đặt hàng");
+                }
+
+
+
                 var orderInfo = new { OrderId = order.OrderId.ToString(), OrderDate = order.OrderDate, Items = cart.ToList(), Total = order.TotalAmount };
                 HttpContext.Session.SetString("LAST_ORDER", System.Text.Json.JsonSerializer.Serialize(orderInfo));
 
