@@ -731,14 +731,13 @@ namespace PerfumeStore.Controllers
                 var total = subtotal - discount + shippingFee + CalculateVAT(subtotal);
 
                 // --- ÁP DỤNG FACADE PATTERN ---
-                // Che giấu toàn bộ logic phức tạp chọc xuống DB
+
                 var order = await _checkoutFacade.PlaceOrderAsync(model, customerEmail, cart, appliedVoucher, total);
 
                 // --- ÁP DỤNG MẪU OBSERVER TẠI ĐÂY ---
                 _orderSubject.Notify(order);
                 // -----------------------------------
 
-                // Lưu thông tin đơn ra Session để hiển thị ở view
                 var orderInfo = new { OrderId = order.OrderId.ToString(), OrderDate = order.OrderDate, Items = cart.ToList(), Total = order.TotalAmount };
                 HttpContext.Session.SetString("LAST_ORDER", System.Text.Json.JsonSerializer.Serialize(orderInfo));
 
