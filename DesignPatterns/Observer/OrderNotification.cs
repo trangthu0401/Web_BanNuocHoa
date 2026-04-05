@@ -41,11 +41,8 @@ namespace PerfumeStore.DesignPatterns.Observer
         // Đăng ký nhận thông báo (Subscribe)
         public void Attach(IObserver observer) => _observers.Add(observer);
 
-        // Hủy đăng ký nhận thông báo (Unsubscribe)
-        public void Detach(IObserver observer) => _observers.Remove(observer);
 
-        // Phát loa thông báo đến tất cả Observer đang đăng ký
-        public void Notify()
+        public void Notify(Order order)
         {
             foreach (var observer in _observers)
             {
@@ -59,8 +56,8 @@ namespace PerfumeStore.DesignPatterns.Observer
     {
         private readonly IEmailService _emailService;
 
-        // Logic nghiệp vụ: Đổi trạng thái -> Tự động kích hoạt chuỗi gửi tin
-        public void ChangeStatus(string newStatus)
+        // [SỬA Ở ĐÂY]: Inject IEmailService vào constructor
+        public EmailObserver(IEmailService emailService)
         {
             _emailService = emailService;
         }
@@ -80,17 +77,13 @@ namespace PerfumeStore.DesignPatterns.Observer
         }
     }
 
-    // ==========================================
-    // CÁC OBSERVER CỤ THỂ SẼ NHẬN THÔNG BÁO
-    // ==========================================
 
-    // 3. Observer gửi Email
-    public class EmailObserver : IObserver
+    public class InventoryObserver : IOrderObserver
     {
         public void Update(Order order)
         {
-            // Trong dự án thực tế, chỗ này sẽ gọi _emailService.SendEmailAsync(...)
-            Console.WriteLine($"[Email Service Observer]: Đang xử lý gửi Email... '{message}'");
+
+            Console.WriteLine($"[InventoryService] Đã xác nhận trừ kho cho các sản phẩm trong đơn #{order.OrderId}.");
         }
     }
 

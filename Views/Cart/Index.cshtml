@@ -72,7 +72,7 @@
                                                             </div>
                                                             <!-- Favorite button for cart item -->
                                                             <div class="ms-2">
-                                                                @await Html.PartialAsync("_SimpleFavoriteButton", item.ProductId)
+                                                                @await Html.PartialAsync("_SimpleFavoriteButton", (int)item.ProductId)
                                                             </div>
                                                         </div>
                                                     </div>
@@ -170,9 +170,9 @@
 
                     @if (Model.Any())
                     {
-                        <button type="button" class="btn btn-orange w-100 btn-lg" id="btnProceed">
+                        <a href="@Url.Action("Checkout", "Cart")" class="btn btn-orange w-100 btn-lg" id="btnProceed">
                             <i class="fas fa-credit-card me-2"></i>Tiến hành đặt hàng
-                        </button>
+                        </a>
                     }
                     else
                     {
@@ -239,13 +239,13 @@
 
             // Update payment buttons state when cart changes
             function updatePaymentButtonsState() {
-                const checkedItems = document.querySelectorAll('.item-check:checked');
-                const hasSelected = checkedItems.length > 0;
+                const cartRows = document.querySelectorAll('.cart-row');
+                const hasItems = cartRows.length > 0;
                 
                 // Update "Tiến hành đặt hàng" button
                 const btnProceed = document.getElementById('btnProceed');
                 if (btnProceed) {
-                    if (hasSelected) {
+                    if (hasItems) {
                         btnProceed.classList.remove('btn-secondary');
                         btnProceed.classList.add('btn-orange');
                         btnProceed.disabled = false;
@@ -259,7 +259,7 @@
                 // Update "Thanh toán ngay" button
                 const btnProceed2 = document.getElementById('btnProceed2');
                 if (btnProceed2) {
-                    if (hasSelected) {
+                    if (hasItems) {
                         btnProceed2.classList.remove('btn-secondary');
                         btnProceed2.classList.add('btn-orange');
                         btnProceed2.disabled = false;
@@ -336,83 +336,7 @@
                 }
             }, true);
 
-            // Checkbox logic
-            const checkAllBtn = document.getElementById('checkAll');
-            const itemCheckboxes = document.querySelectorAll('.item-check');
-            
-            if (checkAllBtn) {
-                checkAllBtn.addEventListener('change', function() {
-                    itemCheckboxes.forEach(cb => cb.checked = this.checked);
-                    updatePaymentButtonsState();
-                    updateCartTotals();
-                });
-            }
-            
-            itemCheckboxes.forEach(cb => {
-                cb.addEventListener('change', function() {
-                    if (!this.checked && checkAllBtn) {
-                        checkAllBtn.checked = false;
-                    } else if (document.querySelectorAll('.item-check:checked').length === itemCheckboxes.length && checkAllBtn) {
-                        checkAllBtn.checked = true;
-                    }
-                    updatePaymentButtonsState();
-                    updateCartTotals();
-                });
-            });
-
-            // Handle Proceed click to selectively checkout items
-            const btnProceedElement = document.getElementById('btnProceed');
-            if (btnProceedElement) {
-                btnProceedElement.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    if (this.disabled) return;
-                    
-                    const checkedItems = document.querySelectorAll('.item-check:checked');
-                    if (checkedItems.length === 0) {
-                        showMessage('Vui lòng chọn ít nhất một sản phẩm để thanh toán!', 'error');
-                        return;
-                    }
-                    
-                    const selectedImageUrls = Array.from(checkedItems).map(cb => {
-                        const row = cb.closest('.cart-row');
-                        return row.querySelector('.js-remove').getAttribute('data-url');
-                    });
-                    
-                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-                    
-                    // Show loading
-                    const oldHtml = this.innerHTML;
-                    this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Đang xử lý...';
-                    this.disabled = true;
-
-                    fetch('/Cart/PrepareCheckout', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': token || ''
-                        },
-                        body: JSON.stringify(selectedImageUrls)
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if(data.success) {
-                            window.location.href = '/Cart/Checkout';
-                        } else {
-                            showMessage(data.message || 'Lỗi hệ thống', 'error');
-                            this.innerHTML = oldHtml;
-                            this.disabled = false;
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Lỗi khi set checkout items', err);
-                        showMessage('Có lỗi xảy ra, vui lòng tải lại trang.', 'error');
-                        this.innerHTML = oldHtml;
-                        this.disabled = false;
-                    });
-                });
-            }
-
-            // Update cart totals selectively
+            // Update cart totals
             function updateCartTotals() {
                 const cartRows = document.querySelectorAll('.cart-row');
                 let subtotal = 0;
@@ -421,17 +345,12 @@
                     const quantity = parseInt(row.querySelector('.qty').value) || 0;
                     const unitPrice = parseFloat(row.querySelector('.unit-price').getAttribute('data-price')) || 0;
                     const lineTotal = quantity * unitPrice;
+                    subtotal += lineTotal;
                     
-                    // Update line total element (always update the display text per row)
+                    // Update line total display
                     const lineTotalElement = row.querySelector('.line-total');
                     if (lineTotalElement) {
                         lineTotalElement.textContent = lineTotal.toLocaleString('vi-VN') + ' đ';
-                    }
-
-                    // Only add to SUB-TOTAL if checked!
-                    const isChecked = row.querySelector('.item-check').checked;
-                    if (isChecked) {
-                        subtotal += lineTotal;
                     }
                 });
                 
@@ -441,22 +360,10 @@
                     subtotalElement.textContent = subtotal.toLocaleString('vi-VN') + ' đ';
                 }
                 
-                // Re-calculate with discount if voucher is verified
-                let discountText = document.getElementById("discount")?.innerText || "0";
-                let discountAmount = 0;
-                if (discountText.includes("%")) {
-                    let pct = parseFloat(discountText.replace(/[^\d.-]/g, ''));
-                    discountAmount = subtotal * (pct / 100);
-                } else {
-                    discountAmount = parseFloat(discountText.replace(/[^\d]/g, '')) || 0;
-                }
-                
-                let grandTotal = Math.max(0, subtotal - discountAmount);
-                
                 // Update grand total
                 const grandTotalElement = document.getElementById('grandTotal');
                 if (grandTotalElement) {
-                    grandTotalElement.textContent = grandTotal.toLocaleString('vi-VN') + ' đ';
+                    grandTotalElement.textContent = subtotal.toLocaleString('vi-VN') + ' đ';
                 }
             }
 

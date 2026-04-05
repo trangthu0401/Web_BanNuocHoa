@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     const fmt = n => n.toLocaleString('vi-VN') + ' đ';
     const table = document.getElementById('cartTable');
     const checkAll = document.getElementById('checkAll');
@@ -247,5 +247,42 @@
         table.querySelectorAll('.item-check').forEach(cb => cb.checked = val);
         recalc();
     });
+
+    async function handleProceedClick(e) {
+        e.preventDefault();
+        const btn = e.currentTarget;
+        const selectedUrls = [];
+        table.querySelectorAll('tbody tr').forEach(row => {
+            if (row.querySelector('.item-check').checked) {
+                const url = row.querySelector('.qty').getAttribute('data-image-url');
+                if (url) selectedUrls.push(url);
+            }
+        });
+
+        if (selectedUrls.length === 0) {
+            alert("Vui lòng chọn ít nhất 1 sản phẩm để thanh toán.");
+            return;
+        }
+
+        try {
+            const res = await fetch('/Cart/PrepareCheckout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(selectedUrls)
+            });
+            const json = await res.json();
+            if (json.success) {
+                window.location.href = btn.getAttribute('href') || '/Cart/Checkout';
+            } else {
+                alert(json.message || "Có lỗi xảy ra.");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    if (btn1) btn1.addEventListener('click', handleProceedClick);
+    if (btn2) btn2.addEventListener('click', handleProceedClick);
+
     recalc();
 })();
