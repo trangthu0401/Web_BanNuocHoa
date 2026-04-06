@@ -37,6 +37,8 @@ namespace PerfumeStore.Controllers
                     model.BirthYear = customer.BirthYear;
                     model.CreatedDate = customer.CreatedDate;
                     model.MembershipName = customer.Membership?.Name;
+                    // them tich diem kh
+                    model.RewardPoints = customer.SpinNumber ?? 0;
                 }
             }
             ViewData["Title"] = "Tài khoản";

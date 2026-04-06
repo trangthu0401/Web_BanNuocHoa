@@ -1,0 +1,103 @@
+@model PerfumeStore.Areas.Admin.Models.Comment
+
+@{
+    ViewData["Title"] = "Chỉnh sửa bình luận";
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid px-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">Chỉnh sửa bình luận</h1>
+                <a href="@Url.Action("Details", new { productId = Model.ProductId })" class="btn btn-secondary">Quay lại</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form asp-action="Edit" method="post">
+                        <input type="hidden" asp-for="ProductId" />
+                        <input type="hidden" asp-for="CustomerId" />
+                        <input type="hidden" asp-for="CommentDate" />
+                        
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Sản phẩm:</strong></label>
+                            <p>@Model.Product?.ProductName</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Khách hàng:</strong></label>
+                            <p>@Model.Customer?.Name (@Model.Customer?.Email)</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Rating" class="form-label">Đánh giá (1-5 sao)</label>
+                            <select asp-for="Rating" class="form-select">
+                                <option value="1">1 sao</option>
+                                <option value="2">2 sao</option>
+                                <option value="3">3 sao</option>
+                                <option value="4">4 sao</option>
+                                <option value="5">5 sao</option>
+                            </select>
+                            <span asp-validation-for="Rating" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Content" class="form-label">Nội dung bình luận</label>
+                            <textarea asp-for="Content" class="form-control" rows="5"></textarea>
+                            <span asp-validation-for="Content" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="hidden" name="IsPublished" value="false" />
+                            <input type="checkbox" name="IsPublished" value="true" class="form-check-input" id="isPublished" @(Model.IsPublished == true ? "checked" : "")>
+                            <label class="form-check-label" for="isPublished">
+                                Hiển thị bình luận (Đã phê duyệt)
+                            </label>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">Cập nhật</button>
+                            <a href="@Url.Action("Details", new { productId = Model.ProductId })" class="btn btn-secondary">Hủy</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Thông tin</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Ngày bình luận:</strong><br>@Model.CommentDate.ToString("dd/MM/yyyy HH:mm")</p>
+                    <p><strong>Trạng thái hiện tại:</strong><br>
+                        @if (Model.IsPublished == true)
+                        {
+                            <span class="badge bg-success">Đã duyệt</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Chờ duyệt</span>
+                        }
+                    </p>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Lưu ý:</strong> Bạn không thể xóa bình luận khi khách hàng vẫn tồn tại trong hệ thống.
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+

@@ -218,12 +218,26 @@
                 <i class="fas fa-check"></i>
             </div>
 
-            <!-- Success Title -->
             <h1 class="success-title">Thanh toán thành công!</h1>
             <p class="success-message">
                 Cảm ơn bạn đã thanh toán. Đơn hàng của bạn đã được xác nhận và đang được xử lý.
             </p>
 
+            @if (TempData["ObserverLogs"] != null)
+            {
+                <div class="alert alert-info border-0 shadow-sm mb-4" style="background: #eef2ff; border-left: 5px solid #667eea !important;">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-robot me-2 text-primary"></i>
+                        <strong class="text-primary">Hệ thống tự động (Observer Pattern):</strong>
+                    </div>
+                    <div class="ps-4 small text-dark">
+                        @Html.Raw(TempData["ObserverLogs"])
+                    </div>
+                </div>
+            }
+
+            <div class="order-info-section">
+                ...
             <!-- Order Information -->
             <div class="order-info-section">
                 <h3 class="order-info-title">

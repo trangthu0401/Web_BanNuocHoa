@@ -3,8 +3,6 @@
     ViewData["Title"] = "Chi tiết sản phẩm";
 }
 
-@Html.AntiForgeryToken()
-
 <div class="container my-4">
     <div class="row">
         <div class="col-12 col-md-6">
@@ -295,18 +293,6 @@
                 </div>
             </div>
 
-            <script>
-                document.getElementById('hasEngraveName').addEventListener('change', function() {
-                    var contentArea = document.getElementById('engraveContentArea');
-                    if (this.checked) {
-                        contentArea.style.display = 'block';
-                    } else {
-                        contentArea.style.display = 'none';
-                        document.getElementById('engraveContent').value = '';
-                    }
-                });
-            </script>
-
             <div class="d-flex gap-2 mt-3">
                 @{
                     // Tính giá ban đầu: ưu tiên Liter có giá trùng với DiscountPrice, nếu không có thì chọn Liter đầu tiên
@@ -509,7 +495,56 @@
 
 </div>
 
+@* Ẩn token chính xác để JavaScript lấy được *@
+@Html.AntiForgeryToken()
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
+    // Toast notification function (đảm bảo luôn hiển thị, không cần Bootstrap JS)
+    function showToast(message, type = 'info') {
+        // Xóa toast cũ nếu có
+        const oldToast = document.getElementById('dynamic-toast');
+        if (oldToast) oldToast.remove();
+
+        const toast = document.createElement('div');
+        toast.id = 'dynamic-toast';
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 280px;
+            max-width: 350px;
+            background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : '#d1ecf1'};
+            color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : '#0c5460'};
+            border-left: 5px solid ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        `;
+        toast.innerHTML = `
+            <span>${message}</span>
+            <button style="background: none; border: none; font-size: 18px; cursor: pointer; color: inherit;">&times;</button>
+        `;
+        document.body.appendChild(toast);
+
+        // Nút đóng
+        const closeBtn = toast.querySelector('button');
+        closeBtn.onclick = () => toast.remove();
+
+        // Tự động xóa sau 4 giây
+        setTimeout(() => {
+            if (toast.parentNode) toast.remove();
+        }, 4000);
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // Xử lý thay đổi ảnh chính khi click vào thumbnail
         const thumbnailImages = document.querySelectorAll('.thumbnail-img');
@@ -518,24 +553,17 @@
 
         thumbnailImages.forEach(thumb => {
             thumb.addEventListener('click', function() {
-                // Xóa class active và border từ tất cả thumbnails
                 thumbnailImages.forEach(t => {
                     t.classList.remove('active');
                     t.style.border = '';
                 });
-
-                // Thêm class active và border cho thumbnail được chọn
                 this.classList.add('active');
                 this.style.border = '2px solid #dc3545';
-
-                // Cập nhật ảnh chính
                 if (mainProductImage) {
                     const imageId = this.dataset.imageId;
                     if (imageId) {
-                        // Nếu có data-image-id, sử dụng action GetImageById
                         mainProductImage.src = getImageByIdUrl + '?imageId=' + imageId;
                     } else {
-                        // Nếu không có, sử dụng src của thumbnail
                         mainProductImage.src = this.src;
                     }
                 }
@@ -546,11 +574,9 @@
         const literButtons = document.querySelectorAll('.size-btn[data-liter-id]');
         const selectedLiterDisplay = document.getElementById('selectedLiterDisplay');
         const addToCartBtn = document.getElementById('addToCartBtn');
-        const productPriceDisplay = document.querySelector('.product-price');
+        const buyNowBtn = document.getElementById('buyNowBtn');
 
         let selectedLiter = null;
-
-        // Lấy Liter được chọn đầu tiên (có class active)
         const initialSelectedBtn = document.querySelector('.size-btn.active[data-liter-id]');
         if (initialSelectedBtn) {
             selectedLiter = {
@@ -560,70 +586,25 @@
             };
         }
 
-        // Xử lý click vào button dung tích
         literButtons.forEach(btn => {
             btn.addEventListener('click', function() {
-                // Xóa class active từ tất cả buttons
                 literButtons.forEach(b => b.classList.remove('active'));
-
-                // Thêm class active cho button được chọn
                 this.classList.add('active');
-
-                // Cập nhật selectedLiter
                 selectedLiter = {
                     id: this.dataset.literId,
                     number: parseInt(this.dataset.literNumber),
                     price: parseFloat(this.dataset.literPrice)
                 };
-
-                // Cập nhật hiển thị "Lựa chọn"
                 if (selectedLiterDisplay) {
                     selectedLiterDisplay.textContent = selectedLiter.number + ' ml';
                 }
-
-                // Cập nhật giá trong phần giá sản phẩm
-                const priceDisplayElement = document.getElementById('productPriceDisplay');
-                const originalPriceDisplayElement = document.getElementById('originalPriceDisplay');
-
-                if (priceDisplayElement) {
-                    priceDisplayElement.textContent = selectedLiter.price.toLocaleString('vi-VN') + ' ₫';
-                }
-
-                // Nếu có giá gốc và giá Liter nhỏ hơn, hiển thị giá gốc gạch ngang
-                const basePrice = parseFloat(this.dataset.basePrice) || 0;
-                if (originalPriceDisplayElement) {
-                    if (selectedLiter.price < basePrice) {
-                        originalPriceDisplayElement.textContent = basePrice.toLocaleString('vi-VN') + ' ₫';
-                        originalPriceDisplayElement.style.display = 'inline';
-                    } else {
-                        originalPriceDisplayElement.style.display = 'none';
-                    }
-                } else if (selectedLiter.price < basePrice && productPriceDisplay) {
-                    // Nếu chưa có element giá gốc, tạo mới
-                    const priceContainer = productPriceDisplay.querySelector('.d-flex') || productPriceDisplay;
-                    if (!priceContainer.querySelector('.text-decoration-line-through')) {
-                        const originalPriceSpan = document.createElement('span');
-                        originalPriceSpan.className = 'text-muted text-decoration-line-through';
-                        originalPriceSpan.id = 'originalPriceDisplay';
-                        originalPriceSpan.textContent = basePrice.toLocaleString('vi-VN') + ' ₫';
-                        if (priceContainer.classList.contains('d-flex')) {
-                            priceContainer.appendChild(originalPriceSpan);
-                        } else {
-                            priceContainer.innerHTML = `<div class="d-flex align-items-baseline gap-2">${priceContainer.innerHTML}<span class="text-muted text-decoration-line-through" id="originalPriceDisplay">${basePrice.toLocaleString('vi-VN')} ₫</span></div>`;
-                        }
-                    }
-                }
-
-                // Cập nhật giá trong button "Thêm vào giỏ hàng" và "Mua ngay"
-                if (addToCartBtn) {
-                    addToCartBtn.dataset.productPrice = selectedLiter.price;
-                }
-                const buyNowBtn = document.getElementById('buyNowBtn');
-                if (buyNowBtn) {
-                    buyNowBtn.dataset.productPrice = selectedLiter.price;
-                }
-
-                // Cập nhật phần mô tả giá/ml
+                // Cập nhật giá hiển thị
+                const priceDisplay = document.getElementById('productPriceDisplay');
+                if (priceDisplay) priceDisplay.textContent = selectedLiter.price.toLocaleString('vi-VN') + ' ₫';
+                // Cập nhật giá trong data attribute của nút
+                if (addToCartBtn) addToCartBtn.dataset.productPrice = selectedLiter.price;
+                if (buyNowBtn) buyNowBtn.dataset.productPrice = selectedLiter.price;
+                // Cập nhật phần giá/ml
                 const priceInfo = this.closest('.product-options')?.querySelector('p strong');
                 if (priceInfo && selectedLiter.number > 0) {
                     const pricePerMl = selectedLiter.price / selectedLiter.number;
@@ -635,103 +616,115 @@
             });
         });
 
-        if (addToCartBtn) {
-            addToCartBtn.addEventListener('click', function(e) {
-                e.preventDefault();
+        // Lấy token chính xác (có id hoặc name)
+        function getAntiForgeryToken() {
+            const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (!tokenInput) {
+                console.error('Không tìm thấy token antiforgery!');
+                return null;
+            }
+            return tokenInput.value;
+        }
 
+        // Hàm gọi API thêm giỏ hàng (dùng chung cho cả Thêm và Mua ngay)
+        async function addToCartAPI(productId, productName, price, imageUrl, hasGiftWrap, hasEngraveName, engraveContent) {
+            const formData = new FormData();
+            formData.append('imageUrl', imageUrl);
+            formData.append('name', productName);
+            formData.append('price', price);
+            if (productId > 0) formData.append('productId', productId);
+            if (hasGiftWrap) formData.append('hasGiftWrap', 'true');
+            if (hasEngraveName) formData.append('hasEngraveName', 'true');
+            if (engraveContent) formData.append('engraveContent', engraveContent);
+
+            const token = getAntiForgeryToken();
+            if (token) formData.append('__RequestVerificationToken', token);
+
+            const response = await fetch('/Cart/AddToCart', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                throw new Error('Server trả về dữ liệu không hợp lệ');
+            }
+
+            if (!response.ok) {
+                throw new Error(data?.message || `Lỗi ${response.status}`);
+            }
+            if (!data.success) {
+                throw new Error(data.message || 'Không thể thêm sản phẩm');
+            }
+            return data;
+        }
+
+        // Nút Thêm vào giỏ hàng
+        if (addToCartBtn) {
+            addToCartBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
                 const productId = parseInt(this.dataset.productId) || 0;
                 const productName = this.dataset.productName || 'Sản phẩm';
-                const price = parseFloat(this.dataset.productPrice) || 0;
+                let price = parseFloat(this.dataset.productPrice) || 0;
                 const imageUrl = this.dataset.imageUrl || '/images/placeholder.jpg';
-
-                // Disable button temporarily
-                this.disabled = true;
-                this.classList.add('disabled');
-                const originalContent = this.innerHTML;
-                this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Đang thêm...';
-                
-                const formData = new FormData();
-                formData.append('imageUrl', imageUrl);
-                formData.append('name', productName);
-                formData.append('price', price);
-                if (productId > 0) {
-                    formData.append('productId', productId);
-                }
-                
                 const hasGiftWrap = document.getElementById('hasGiftWrap')?.checked || false;
                 const hasEngraveName = document.getElementById('hasEngraveName')?.checked || false;
-                const engraveContent = document.getElementById('engraveContent')?.value || '';
-                
-                formData.append('hasGiftWrap', hasGiftWrap);
-                formData.append('hasEngraveName', hasEngraveName);
-                if (hasEngraveName) {
-                    formData.append('engraveContent', engraveContent);
-                }
-                
-                // Get anti-forgery token
-                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-                if (token) {
-                    formData.append('__RequestVerificationToken', token);
-                }
+                const engraveContent = hasEngraveName ? (document.getElementById('engraveContent')?.value || '') : '';
 
-                // Send AJAX request
-                fetch('/Cart/AddToCart', {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Show success message
-                        this.innerHTML = '<i class="bi bi-check-circle me-2"></i>Đã thêm!';
-                        this.classList.remove('btn-outline-secondary');
-                        this.classList.add('btn-success');
+                // Nếu có chọn dung tích, lấy giá từ selectedLiter
+                if (selectedLiter && selectedLiter.price > 0) price = selectedLiter.price;
 
-                        // Update cart count if available
-                        if (typeof updateCartCount === 'function') {
-                            updateCartCount(data.cartCount);
-                        }
+                // Disable button
+                this.disabled = true;
+                const originalHtml = this.innerHTML;
+                this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Đang thêm...';
 
-                        // Show toast notification
-                        showToast(data.message || 'Đã thêm sản phẩm vào giỏ hàng!', 'success');
-                    } else {
-                        throw new Error(data.message || 'Có lỗi xảy ra');
+                try {
+                    const result = await addToCartAPI(productId, productName, price, imageUrl, hasGiftWrap, hasEngraveName, engraveContent);
+                    showToast(result.message || 'Đã thêm vào giỏ hàng!', 'success');
+                    this.innerHTML = '<i class="bi bi-check-circle me-2"></i>Đã thêm!';
+                    this.classList.add('btn-success');
+                    this.classList.remove('btn-outline-primary');
+                    // Cập nhật số lượng giỏ hàng nếu có hàm global
+                    if (typeof updateCartCount === 'function') updateCartCount();
+                    else {
+                        // Gọi API cập nhật số lượng hiển thị (tự động reload header)
+                        fetch('/Cart/GetCartCount').then(res => res.json()).then(data => {
+                            const count = data.cartCount || 0;
+                            const badges = document.querySelectorAll('.cart-count, #mobile-cart-count, #desktop-cart-count');
+                            badges.forEach(b => { if (b) b.textContent = count; });
+                        }).catch(console.error);
                     }
-                })
-                .catch(error => {
-                    console.error('Error adding to cart:', error);
-                    this.innerHTML = '<i class="bi bi-exclamation-circle me-2"></i>Lỗi!';
-                    this.classList.remove('btn-outline-secondary');
-                    this.classList.add('btn-warning');
-                    showToast('Có lỗi xảy ra khi thêm sản phẩm!', 'error');
-                })
-                .finally(() => {
-                    // Re-enable button after delay
+                } catch (error) {
+                    console.error('Add to cart error:', error);
+                    showToast(error.message || 'Có lỗi xảy ra, vui lòng thử lại!', 'error');
+                    this.innerHTML = originalHtml;
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-outline-primary');
+                } finally {
                     setTimeout(() => {
                         this.disabled = false;
-                        this.classList.remove('disabled', 'btn-success', 'btn-warning');
-                        this.classList.add('btn-outline-secondary');
-                        this.innerHTML = originalContent;
+                        this.innerHTML = originalHtml;
+                        this.classList.remove('btn-success');
+                        this.classList.add('btn-outline-primary');
                     }, 2000);
-                });
+                }
             });
         }
 
-        // Xử lý nút "Mua ngay"
-        const buyNowBtn = document.getElementById('buyNowBtn');
+        // Nút Mua ngay
         if (buyNowBtn) {
-            buyNowBtn.addEventListener('click', function(e) {
+            buyNowBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
 
                 @if (!User.Identity.IsAuthenticated)
                 {
                         <text>
-                        // Chưa đăng nhập, redirect đến trang Login
-                        window.location.href = '@Url.Action("Login", "Auth")';
-                        return;
+                            window.location.href = '@Url.Action("Login", "Auth")';
+                            return;
                         </text>
                 }
                 else
@@ -797,99 +790,49 @@
         }
     });
 
-    // Toast notification function
-    function showToast(message, type = 'info') {
-        // Remove existing toasts
-        const existingToasts = document.querySelectorAll('.toast-notification');
-        existingToasts.forEach(toast => toast.remove());
-
-        // Create toast element
-        const toast = document.createElement('div');
-        toast.className = `toast-notification alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show`;
-        toast.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            min-width: 300px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        `;
-
-        toast.innerHTML = `
-            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-
-        document.body.appendChild(toast);
-
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.remove();
-            }
-        }, 3000);
-    }
-</script>
-<script>
-    // Test favorite functionality
+    // Favorite functions (giữ nguyên, có thể dùng jQuery)
     function testFavorite(productId) {
         console.log('Testing favorite for product:', productId);
-
-        // Check if user is logged in
         @if (User.Identity.IsAuthenticated)
         {
                 <text>
-                console.log('User is logged in, proceeding...');
-
                 var icon = $('#testFavoriteIcon');
                 var btn = $('#favoriteBtn');
                 var isFavorite = icon.hasClass('bi-heart-fill');
-
-                console.log('Current favorite status:', isFavorite);
-
                 if (isFavorite) {
-                    // Remove from favorites
                     $.ajax({
                         url: '/Favorites/RemoveFromFavorites',
                         type: 'POST',
                         data: { productId: productId },
                         success: function(response) {
-                            console.log('Remove response:', response);
                             if (response.success) {
                                 icon.removeClass('bi-heart-fill').addClass('bi-heart');
                                 btn.removeClass('btn-danger').addClass('btn-outline-danger');
-                                alert('Đã xóa khỏi yêu thích!');
+                                showToast('Đã xóa khỏi yêu thích!', 'success');
                             } else {
-                                alert('Lỗi: ' + response.message);
+                                showToast('Lỗi: ' + response.message, 'error');
                             }
                         },
-                        error: function(xhr, status, error) {
-                            console.error('Remove error:', error);
-                            console.error('Response:', xhr.responseText);
-                            alert('Có lỗi xảy ra khi xóa khỏi yêu thích!');
+                        error: function() {
+                            showToast('Có lỗi xảy ra khi xóa khỏi yêu thích!', 'error');
                         }
                     });
                 } else {
-                    // Add to favorites
                     $.ajax({
                         url: '/Favorites/AddToFavorites',
                         type: 'POST',
                         data: { productId: productId },
                         success: function(response) {
-                            console.log('Add response:', response);
                             if (response.success) {
                                 icon.removeClass('bi-heart').addClass('bi-heart-fill');
                                 btn.removeClass('btn-outline-danger').addClass('btn-danger');
-                                alert('Đã thêm vào yêu thích!');
+                                showToast('Đã thêm vào yêu thích!', 'success');
                             } else {
-                                alert('Lỗi: ' + response.message);
+                                showToast('Lỗi: ' + response.message, 'error');
                             }
                         },
-                        error: function(xhr, status, error) {
-                            console.error('Add error:', error);
-                            console.error('Response:', xhr.responseText);
-                            alert('Có lỗi xảy ra khi thêm vào yêu thích!');
+                        error: function() {
+                            showToast('Có lỗi xảy ra khi thêm vào yêu thích!', 'error');
                         }
                     });
                 }
@@ -898,38 +841,29 @@
         else
         {
                 <text>
-                console.log('User not logged in');
-                alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích!');
-                window.location.href = '@Url.Action("Auth", "Auth")';
+                showToast('Vui lòng đăng nhập để sử dụng tính năng yêu thích!', 'error');
+                setTimeout(() => { window.location.href = '@Url.Action("Login", "Auth")'; }, 1500);
                 </text>
         }
     }
 
-    // Check favorite status on page load
+    // Kiểm tra trạng thái yêu thích khi load trang
     $(document).ready(function() {
         @if (User.Identity.IsAuthenticated)
         {
                 <text>
                 var productId = @(Model?.ProductId ?? 0);
-                console.log('Checking favorite status for product:', productId);
-
                 $.ajax({
                     url: '/Favorites/CheckFavorite',
                     type: 'GET',
                     data: { productId: productId },
                     success: function(response) {
-                        console.log('Check favorite response:', response);
-                        var icon = $('#testFavoriteIcon');
-                        var btn = $('#testFavoriteBtn');
-
                         if (response.isFavorite) {
-                            icon.removeClass('bi-heart').addClass('bi-heart-fill');
-                            btn.removeClass('btn-outline-danger').addClass('btn-danger');
+                            $('#testFavoriteIcon').removeClass('bi-heart').addClass('bi-heart-fill');
+                            $('#favoriteBtn').removeClass('btn-outline-danger').addClass('btn-danger');
                         }
                     },
-                    error: function(xhr, status, error) {
-                        console.error('Check favorite error:', error);
-                    }
+                    error: function(xhr) { console.error('Check favorite error:', xhr); }
                 });
                 </text>
         }
