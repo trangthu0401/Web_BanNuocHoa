@@ -1,9 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
-using PerfumeStore.Models;
-using PerfumeStore.Services;
+﻿using Microsoft.AspNetCore.Localization;
+using Microsoft.EntityFrameworkCore;
+using Net.payOS;
 using PerfumeStore.Areas.Admin.Models;
 using PerfumeStore.Areas.Admin.Services;
-using Net.payOS;
+using PerfumeStore.Models;
+using PerfumeStore.Services;
+using System.Globalization;
 
 namespace PerfumeStore
 {
@@ -90,6 +92,16 @@ namespace PerfumeStore
             builder.Services.AddSingleton(payOS);
 
             var app = builder.Build();
+
+            // Cấu hình Localization
+            var defaultCulture = new CultureInfo("en-US");
+            var localizationOptions = new RequestLocalizationOptions
+            {
+                DefaultRequestCulture = new RequestCulture(defaultCulture),
+                SupportedCultures = new List<CultureInfo> { defaultCulture },
+                SupportedUICultures = new List<CultureInfo> { defaultCulture }
+            };
+            app.UseRequestLocalization(localizationOptions);
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
