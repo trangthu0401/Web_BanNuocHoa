@@ -28,6 +28,7 @@ namespace PerfumeStore.Models.ViewModels
 
         [Display(Name = "Hạng thành viên")]
         public string? MembershipName { get; set; }
+        public int RewardPoints { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

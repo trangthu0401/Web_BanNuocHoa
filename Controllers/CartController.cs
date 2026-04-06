@@ -319,7 +319,6 @@ namespace PerfumeStore.Controllers
 
             var cart = GetCartFromSession();
 
-            // 🌟 ĐÃ SỬA LỖI: CHỈ LẤY SẢN PHẨM ĐƯỢC CHỌN KHI VÀO TRANG CHECKOUT
             var selectedItemsJson = HttpContext.Session.GetString("CHECKOUT_SELECTED_ITEMS");
             if (!string.IsNullOrEmpty(selectedItemsJson))
             {
@@ -372,10 +371,9 @@ namespace PerfumeStore.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ProcessCheckout(CheckoutViewModel model)
         {
-            var fullCart = GetCartFromSession(); // Lấy toàn bộ để lát nữa xóa
-            var cart = fullCart.ToList(); // Copy ra một bản để thanh toán
+            var fullCart = GetCartFromSession();
+            var cart = fullCart.ToList();
 
-            // 🌟 ĐÃ SỬA LỖI: CHỈ LẤY SẢN PHẨM ĐƯỢC CHỌN ĐỂ THANH TOÁN VÀ TRỪ KHO
             var selectedItemsJson = HttpContext.Session.GetString("CHECKOUT_SELECTED_ITEMS");
             if (!string.IsNullOrEmpty(selectedItemsJson))
             {
@@ -411,8 +409,7 @@ namespace PerfumeStore.Controllers
                 // --- 2. ÁP DỤNG MẪU OBSERVER (TẠO LOG GIẢ QUA STRINGWRITER) ---
                 var orderSubject = new PerfumeStore.DesignPatterns.Observer.OrderSubject();
 
-                // Truyền _emailService vào Constructor của EmailObserver
-                orderSubject.Attach(new EmailObserver(_emailService));
+                orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.EmailObserver(_emailService));
                 orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.InventoryObserver());
                 orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.MembershipObserver());
 
@@ -425,10 +422,24 @@ namespace PerfumeStore.Controllers
                     TempData["ObserverLogs"] = sw.ToString().Replace(Environment.NewLine, "<br/>");
                 }
 
-                // --- 3. THỰC THI CÁC TÁC VỤ THẬT TẾ (Do Observer cũ chỉ in Log ảo) ---
+                // --- 3. THỰC THI CÁC TÁC VỤ THẬT TẾ ---
                 try
                 {
-                    // Tác vụ 3.2: Trừ số lượng Tồn kho (Stock) CHỈ NHỮNG MÓN ĐÃ THANH TOÁN
+                    // Tác vụ 3.1: Gửi Email xác nhận đơn hàng cho khách
+                    if (!string.IsNullOrEmpty(customerEmail))
+                    {
+                        string emailSub = $"Xác nhận đơn hàng #{order.OrderId} từ PerfumeStore";
+                        string emailBody = $"<h3>Cảm ơn {model.CustomerName} đã đặt hàng!</h3>" +
+                                           $"<p>Mã đơn hàng: <b>{order.OrderId}</b></p>" +
+                                           $"<p>Tổng tiền: <b>{total:N0} VNĐ</b></p>" +
+                                           $"<p>Phương thức: {model.PaymentMethod}</p>";
+                        await _emailService.SendSimpleTextEmailAsync(customerEmail, emailSub, emailBody);
+                    }
+
+                    // Tác vụ 3.2: Trừ số lượng Tồn kho & Gửi Email báo cho Admin/Kho
+                    bool stockUpdated = false;
+                    string inventoryAlertBody = $"<h3>Báo cáo cập nhật kho - Đơn hàng #{order.OrderId}</h3><ul>";
+
                     foreach (var item in cart)
                     {
                         if (item.ProductId > 0)
@@ -437,16 +448,39 @@ namespace PerfumeStore.Controllers
                             if (prodInDb != null)
                             {
                                 prodInDb.Stock = prodInDb.Stock >= item.Quantity ? prodInDb.Stock - item.Quantity : 0;
+                                inventoryAlertBody += $"<li>{prodInDb.ProductName}: Đã bán <b>{item.Quantity}</b> -> Tồn kho còn: <b>{prodInDb.Stock}</b></li>";
+                                stockUpdated = true;
                             }
                         }
                     }
+                    inventoryAlertBody += "</ul>";
 
-                    // Tác vụ 3.3: Tích điểm cho Khách hàng
+                    // Gửi mail cho bộ phận Kho (Bạn có thể thay đổi email này)
+                    if (stockUpdated)
+                    {
+                        await _emailService.SendSimpleTextEmailAsync("kho@perfumestore.vn", $"[Hệ thống] Trừ kho thành công - Đơn #{order.OrderId}", inventoryAlertBody);
+                    }
+
+                    // Tác vụ 3.3: Tích điểm cho Khách hàng & Gửi Email thông báo cộng điểm
                     var customerDb = await _context.Customers.FirstOrDefaultAsync(c => c.Email == customerEmail);
                     if (customerDb != null)
                     {
                         int pointsEarned = (int)(total / 100000);
-                        customerDb.SpinNumber = (customerDb.SpinNumber ?? 0) + pointsEarned;
+                        if (pointsEarned > 0)
+                        {
+                            customerDb.SpinNumber = (customerDb.SpinNumber ?? 0) + pointsEarned;
+
+                            // Gửi mail báo cộng điểm cho Khách hàng
+                            if (!string.IsNullOrEmpty(customerEmail))
+                            {
+                                string pointsSub = $"Bạn vừa được cộng {pointsEarned} điểm thưởng!";
+                                string pointsBody = $"<h3>Chúc mừng {model.CustomerName}!</h3>" +
+                                                    $"<p>Hệ thống đã cộng <b>{pointsEarned} điểm</b> vào tài khoản của bạn từ đơn hàng #{order.OrderId}.</p>" +
+                                                    $"<p>Tổng điểm hiện tại của bạn là: <b>{customerDb.SpinNumber} điểm</b>.</p>" +
+                                                    $"<p>Đăng nhập vào website để xem và sử dụng điểm ngay nhé!</p>";
+                                await _emailService.SendSimpleTextEmailAsync(customerEmail, pointsSub, pointsBody);
+                            }
+                        }
                     }
 
                     // Lưu thay đổi kho và điểm vào Database
@@ -454,7 +488,7 @@ namespace PerfumeStore.Controllers
                 }
                 catch (Exception bgEx)
                 {
-                    _logger.LogError(bgEx, "Lỗi khi chạy tác vụ nền (Trừ kho/Cộng điểm) sau khi tạo đơn");
+                    _logger.LogError(bgEx, "Lỗi khi chạy tác vụ nền (Trừ kho/Cộng điểm/Gửi mail) sau khi tạo đơn");
                 }
                 // --- KẾT THÚC KHỐI THỰC THI THẬT ---
 
@@ -466,20 +500,17 @@ namespace PerfumeStore.Controllers
 
                 if (model.PaymentMethod == "BANK_TRANSFER")
                 {
-                    // Chuyển khoản qua PayOS
                     HttpContext.Session.SetString("PENDING_ORDER_ID", order.OrderId.ToString());
                     HttpContext.Session.SetString("PENDING_ORDER_AMOUNT", order.TotalAmount.ToString());
                     paymentContext.SetStrategy(new PerfumeStore.DesignPatterns.Strategy.PayOsPaymentStrategy());
                 }
                 else
                 {
-                    // COD
-                    // 🌟 ĐÃ SỬA LỖI: CHỈ XÓA NHỮNG MÓN ĐÃ MUA KHỎI GIỎ HÀNG GỐC
                     fullCart.RemoveAll(i => cart.Any(c => c.ImageUrl == i.ImageUrl));
                     SaveCartToSession(fullCart);
 
                     HttpContext.Session.Remove("AppliedVoucher");
-                    HttpContext.Session.Remove("CHECKOUT_SELECTED_ITEMS"); // Xóa bỏ list đã chọn sau khi thanh toán
+                    HttpContext.Session.Remove("CHECKOUT_SELECTED_ITEMS");
 
                     paymentContext.SetStrategy(new PerfumeStore.DesignPatterns.Strategy.CodPaymentStrategy());
                 }
@@ -607,7 +638,6 @@ namespace PerfumeStore.Controllers
             {
                 var cart = GetCartFromSession();
 
-                // 🌟 ĐÃ SỬA LỖI: CHỈ TÍNH TIỀN CHO NHỮNG MÓN ĐƯỢC CHỌN KHI ÁP VOUCHER
                 var selectedItemsJson = HttpContext.Session.GetString("CHECKOUT_SELECTED_ITEMS");
                 if (!string.IsNullOrEmpty(selectedItemsJson))
                 {
