@@ -1,0 +1,321 @@
+@model PerfumeStore.Models.Category
+@{
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Chỉnh sửa danh mục";
+}
+
+<div class="d-flex align-items-center mb-4">
+    <a asp-action="Index" class="btn btn-outline-secondary me-3">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <h4 class="mb-0">
+        <i class="fas fa-edit me-2 text-primary"></i>Chỉnh sửa danh mục
+    </h4>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2 text-primary"></i>Thông tin danh mục
+                </h6>
+            </div>
+            <div class="card-body">
+                <form asp-action="Edit" method="post">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger d-none"></div>
+                    
+                    <input type="hidden" asp-for="CategoryId" />
+                    
+                    <!-- Current Info Display -->
+                    <div class="mb-4">
+                        <div class="bg-light rounded-3 p-3">
+                            <div class="row align-items-center">
+                                <div class="col-auto">
+                                    <div class="bg-primary bg-gradient rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                        <i class="fas fa-tag text-white fa-lg"></i>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="fw-semibold">Danh mục hiện tại</div>
+                                    <div class="text-muted">ID: @Model.CategoryId</div>
+                                </div>
+                                <div class="col-auto">
+                                    <span class="badge bg-info">Đang chỉnh sửa</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label asp-for="CategoryName" class="form-label fw-semibold">
+                            <i class="fas fa-tag me-1 text-primary"></i>Tên danh mục
+                            <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="CategoryName" class="form-control form-control-lg" 
+                               placeholder="Nhập tên danh mục..." 
+                               maxlength="100" 
+                               required />
+                        <span asp-validation-for="CategoryName" class="text-danger small"></span>
+                        <div class="form-text">
+                            <i class="fas fa-lightbulb me-1"></i>
+                            Tên danh mục nên ngắn gọn, dễ hiểu và không trùng với danh mục khác.
+                        </div>
+                    </div>
+
+                    <!-- Preview Section -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-eye me-1 text-info"></i>Xem trước thay đổi
+                        </label>
+                        <div class="border rounded-3 p-3 bg-light">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                    <i class="fas fa-tag text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" id="previewName">@Model.CategoryName</div>
+                                    <small class="text-muted">ID: @Model.CategoryId</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a asp-action="Index" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>Hủy
+                        </a>
+                        <a asp-action="Details" asp-route-id="@Model.CategoryId" class="btn btn-outline-info">
+                            <i class="fas fa-eye me-1"></i>Xem chi tiết
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Cập nhật
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Change History Card (Mock) -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-light border-0">
+                <h6 class="card-title mb-0 text-secondary">
+                    <i class="fas fa-history me-2"></i>Lịch sử thay đổi
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-success"></div>
+                        <div class="timeline-content">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>Tạo danh mục</strong>
+                                    <div class="text-muted small">Danh mục được tạo với tên "@Model.CategoryName"</div>
+                                </div>
+                                <small class="text-muted">Vừa tạo</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center text-muted">
+                    <small><i class="fas fa-info-circle me-1"></i>Lịch sử chi tiết sẽ được cập nhật sau khi lưu thay đổi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tips Card -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-light border-0">
+                <h6 class="card-title mb-0 text-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Lưu ý khi chỉnh sửa
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-shield-alt text-info me-2 mt-1"></i>
+                            <div>
+                                <strong>An toàn:</strong>
+                                <ul class="list-unstyled mt-1 mb-0 small text-muted">
+                                    <li>• Thay đổi tên không ảnh hưởng đến sản phẩm</li>
+                                    <li>• Dữ liệu được sao lưu tự động</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-users text-success me-2 mt-1"></i>
+                            <div>
+                                <strong>Tác động:</strong>
+                                <ul class="list-unstyled mt-1 mb-0 small text-muted">
+                                    <li>• Khách hàng sẽ thấy tên mới ngay lập tức</li>
+                                    <li>• Bộ lọc và tìm kiếm được cập nhật</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <script>
+        // Store original name for comparison
+        const originalName = '@Model.CategoryName';
+        
+        // Real-time preview
+        document.getElementById('CategoryName').addEventListener('input', function() {
+            const previewName = document.getElementById('previewName');
+            const value = this.value.trim();
+            
+            if (value) {
+                previewName.textContent = value;
+                previewName.classList.remove('text-muted');
+                
+                // Highlight if changed
+                if (value !== originalName) {
+                    previewName.classList.add('text-primary');
+                } else {
+                    previewName.classList.remove('text-primary');
+                }
+            } else {
+                previewName.textContent = 'Tên danh mục sẽ hiển thị ở đây';
+                previewName.classList.add('text-muted');
+                previewName.classList.remove('text-primary');
+            }
+        });
+
+        // Form validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const categoryName = document.getElementById('CategoryName').value.trim();
+            
+            if (!categoryName) {
+                e.preventDefault();
+                alert('Vui lòng nhập tên danh mục!');
+                document.getElementById('CategoryName').focus();
+                return false;
+            }
+            
+            if (categoryName.length < 2) {
+                e.preventDefault();
+                alert('Tên danh mục phải có ít nhất 2 ký tự!');
+                document.getElementById('CategoryName').focus();
+                return false;
+            }
+            
+            // Confirm if no changes made
+            if (categoryName === originalName) {
+                if (!confirm('Bạn chưa thay đổi gì. Bạn có muốn tiếp tục?')) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+
+        // Auto-focus on category name input
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.getElementById('CategoryName');
+            input.focus();
+            input.select(); // Select all text for easy editing
+        });
+
+        // Show validation summary if there are errors
+        document.addEventListener('DOMContentLoaded', function() {
+            const validationSummary = document.querySelector('[asp-validation-summary]');
+            if (validationSummary && validationSummary.querySelector('li')) {
+                validationSummary.classList.remove('d-none');
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+S to save
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                document.querySelector('form').submit();
+            }
+            
+            // Escape to cancel
+            if (e.key === 'Escape') {
+                if (confirm('Bạn có muốn hủy chỉnh sửa và quay lại danh sách?')) {
+                    window.location.href = '@Url.Action("Index")';
+                }
+            }
+        });
+    </script>
+}
+
+<style>
+.card {
+    border-radius: 12px;
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+}
+
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+}
+
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -35px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #dee2e6;
+}
+
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: -30px;
+    top: 17px;
+    width: 2px;
+    height: calc(100% - 12px);
+    background-color: #dee2e6;
+}
+
+.form-text {
+    font-size: 0.875rem;
+}
+
+@@media (max-width: 768px) {
+    .col-lg-8 {
+        padding: 0 15px;
+    }
+    
+    .timeline {
+        padding-left: 20px;
+    }
+    
+    .timeline-marker {
+        left: -25px;
+    }
+    
+    .timeline-item:not(:last-child)::before {
+        left: -20px;
+    }
+}
+</style>

@@ -1,12 +1,12 @@
 // Cart functionality
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize cart count on page load
+document.addEventListener('DOMContentLoaded', function () {
     updateCartCount();
-    
-    // Handle add to cart forms
+
     const addToCartForms = document.querySelectorAll('.add-to-cart-form');
+    console.log('Found add-to-cart forms:', addToCartForms.length);
+
     addToCartForms.forEach(form => {
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', function (e) {
             e.preventDefault();
             addToCart(this);
         });
@@ -18,34 +18,31 @@ function addToCart(form) {
     const formData = new FormData(form);
     const button = form.querySelector('button[type="submit"]');
     const originalText = button.innerHTML;
-    
-    // Show loading state
+
+    // ⭐ THÊM TOKEN ANTIFORGERY ⭐
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+    if (token) {
+        formData.append('__RequestVerificationToken', token);
+    }
+
     button.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Đang thêm...';
     button.disabled = true;
-    
-    // Add AJAX header
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', form.action, true);
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-    
-    xhr.onreadystatechange = function() {
+
+    xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 try {
                     const response = JSON.parse(xhr.responseText);
                     if (response.success) {
-                        // Show success message
                         showToast(response.message, 'success');
-                        
-                        // Update cart count
                         updateCartCount();
-                        
-                        // Add animation to button
                         button.innerHTML = '<i class="bi bi-check-circle me-1"></i>Đã thêm!';
                         button.classList.add('btn-success');
                         button.classList.remove('btn-orange');
-                        
-                        // Reset button after 2 seconds
                         setTimeout(() => {
                             button.innerHTML = originalText;
                             button.classList.remove('btn-success');
@@ -53,142 +50,98 @@ function addToCart(form) {
                             button.disabled = false;
                         }, 2000);
                     } else {
-                        // Hiển thị thông báo lỗi từ server
-                        showToast(response.message || 'Có lỗi xảy ra khi thêm sản phẩm!', 'error');
-                        button.innerHTML = originalText;
-                        button.disabled = false;
+                        showToast(response.message || 'Có lỗi xảy ra!', 'error');
+                        resetButton(button, originalText);
                     }
                 } catch (e) {
-                    console.error('Error parsing response:', e);
-                    showToast('Có lỗi xảy ra!', 'error');
-                    button.innerHTML = originalText;
-                    button.disabled = false;
+                    console.error('Parse error:', e);
+                    showToast('Lỗi xử lý dữ liệu!', 'error');
+                    resetButton(button, originalText);
                 }
             } else {
-                showToast('Có lỗi xảy ra khi thêm sản phẩm!', 'error');
-                button.innerHTML = originalText;
-                button.disabled = false;
+                // Xử lý lỗi HTTP (400, 500...)
+                let errorMsg = `Lỗi ${xhr.status}: `;
+                try {
+                    const err = JSON.parse(xhr.responseText);
+                    errorMsg += err.message || err.title || 'Không xác định';
+                } catch {
+                    errorMsg += xhr.statusText || 'Vui lòng thử lại';
+                }
+                showToast(errorMsg, 'error');
+                resetButton(button, originalText);
             }
         }
     };
-    
     xhr.send(formData);
 }
 
-// Update cart count in header
-function updateCartCount() {
-    fetch('/Cart/GetCartCount')
-        .then(response => response.json())
-        .then(data => {
-            // Sử dụng cartCount từ response (API trả về cartCount, không phải count)
-            const count = data.cartCount || data.count || 0;
-            
-            // Update mobile cart count
-            const mobileCount = document.getElementById('mobile-cart-count');
-            if (mobileCount) {
-                mobileCount.textContent = count;
-                // Hiển thị badge nếu có sản phẩm, ẩn nếu không có
-                if (count > 0) {
-                    mobileCount.style.display = 'block';
-                    mobileCount.classList.add('cart-badge-animation');
-                    setTimeout(() => mobileCount.classList.remove('cart-badge-animation'), 600);
-                } else {
-                    mobileCount.style.display = 'none';
-                }
-            }
-            
-            // Update desktop cart count
-            const desktopCount = document.getElementById('desktop-cart-count');
-            if (desktopCount) {
-                desktopCount.textContent = count;
-                // Hiển thị badge nếu có sản phẩm, ẩn nếu không có
-                if (count > 0) {
-                    desktopCount.style.display = 'block';
-                    desktopCount.classList.add('cart-badge-animation');
-                    setTimeout(() => desktopCount.classList.remove('cart-badge-animation'), 600);
-                } else {
-                    desktopCount.style.display = 'none';
-                }
-            }
-            
-            // Update tất cả các element có class cart-count (fallback)
-            const allCartCounts = document.querySelectorAll('.cart-count');
-            allCartCounts.forEach(element => {
-                element.textContent = count;
-                if (count > 0) {
-                    element.style.display = 'block';
-                } else {
-                    element.style.display = 'none';
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Error updating cart count:', error);
-        });
+function resetButton(button, originalText) {
+    button.disabled = false;
+    button.innerHTML = originalText;
+    button.classList.remove('btn-success');
+    button.classList.add('btn-orange');
 }
 
-// Show toast notification
+function updateCartCount() {
+    fetch('/Cart/GetCartCount')
+        .then(res => res.json())
+        .then(data => {
+            const count = data.cartCount || data.count || 0;
+            const mobile = document.getElementById('mobile-cart-count');
+            const desktop = document.getElementById('desktop-cart-count');
+            if (mobile) {
+                mobile.textContent = count;
+                mobile.style.display = count > 0 ? 'block' : 'none';
+                if (count > 0) mobile.classList.add('cart-badge-animation');
+                setTimeout(() => mobile.classList.remove('cart-badge-animation'), 600);
+            }
+            if (desktop) {
+                desktop.textContent = count;
+                desktop.style.display = count > 0 ? 'block' : 'none';
+                if (count > 0) desktop.classList.add('cart-badge-animation');
+                setTimeout(() => desktop.classList.remove('cart-badge-animation'), 600);
+            }
+            document.querySelectorAll('.cart-count').forEach(el => {
+                el.textContent = count;
+                el.style.display = count > 0 ? 'block' : 'none';
+            });
+        })
+        .catch(err => console.error('Update cart count error:', err));
+}
+
 function showToast(message, type = 'info') {
-    // Create toast container if it doesn't exist
-    let toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        toastContainer.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 300px;
-        `;
-        document.body.appendChild(toastContainer);
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;max-width:300px;';
+        document.body.appendChild(container);
     }
-    
-    // Create toast element
     const toast = document.createElement('div');
     toast.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show`;
-    toast.style.cssText = `
-        margin-bottom: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        border: none;
-        border-radius: 8px;
-    `;
-    
+    toast.style.cssText = 'margin-bottom:10px;box-shadow:0 4px 12px rgba(0,0,0,0.15);border:none;border-radius:8px;';
     toast.innerHTML = `
         <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
-    
-    toastContainer.appendChild(toast);
-    
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-        if (toast.parentNode) {
-            toast.remove();
-        }
-    }, 3000);
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
 }
 
-// Add cart animation styles
+// Fallback nếu Bootstrap JS chưa load: thêm sự kiện xóa thủ công
+document.addEventListener('click', function (e) {
+    if (e.target.classList.contains('btn-close')) {
+        const toast = e.target.closest('.alert');
+        if (toast) toast.remove();
+    }
+});
+
+// Animation styles
 const style = document.createElement('style');
 style.textContent = `
-    .add-to-cart-form button {
-        transition: all 0.3s ease;
-    }
-    
-    .add-to-cart-form button:hover {
-        transform: translateY(-1px);
-    }
-    
-    .add-to-cart-form button:active {
-        transform: translateY(0);
-    }
-    
-    .cart-badge-animation {
-        animation: cartPulse 0.6s ease-in-out;
-    }
-    
+    .add-to-cart-form button { transition: all 0.3s ease; }
+    .cart-badge-animation { animation: cartPulse 0.6s ease-in-out; }
     @keyframes cartPulse {
         0% { transform: scale(1); }
         50% { transform: scale(1.2); }
@@ -196,5 +149,3 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
-
-

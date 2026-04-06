@@ -1,0 +1,363 @@
+@model PerfumeStore.Models.Category
+@{
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Chi tiết danh mục";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div class="d-flex align-items-center">
+        <a asp-action="Index" class="btn btn-outline-secondary me-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <h4 class="mb-0">
+            <i class="fas fa-info-circle me-2 text-info"></i>Chi tiết danh mục
+        </h4>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Edit" asp-route-id="@Model.CategoryId" class="btn btn-primary">
+            <i class="fas fa-edit me-1"></i>Chỉnh sửa
+        </a>
+        <button type="button" class="btn btn-outline-danger" 
+                onclick="confirmDelete(@Model.CategoryId, '@Model.CategoryName', @Model.Products.Count)">
+            <i class="fas fa-trash me-1"></i>Xóa
+        </button>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Category Information -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-tag me-2 text-primary"></i>Thông tin danh mục
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="bg-primary bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-tag text-white fa-2x"></i>
+                    </div>
+                    <h5 class="fw-bold">@Model.CategoryName</h5>
+                    <p class="text-muted mb-0">ID: @Model.CategoryId</p>
+                </div>
+                
+                <hr>
+                
+                <div class="row g-3 text-center">
+                    <div class="col-6">
+                        <div class="bg-light rounded-3 p-3">
+                            <div class="fs-4 fw-bold text-success">@Model.Products.Count</div>
+                            <small class="text-muted">Sản phẩm</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="bg-light rounded-3 p-3">
+                            <div class="fs-4 fw-bold text-info">
+                                @{
+                                    var totalCategories = ViewBag.TotalCategories ?? 1;
+                                    var percentage = totalCategories > 0 ? Math.Round((double)Model.Products.Count / (double)ViewBag.TotalProducts * 100, 1) : 0;
+                                }
+                                @percentage%
+                            </div>
+                            <small class="text-muted">Tỷ lệ</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Products List -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-box me-2 text-success"></i>Sản phẩm trong danh mục
+                        <span class="badge bg-success ms-2">@Model.Products.Count</span>
+                    </h6>
+                    @if (Model.Products.Any())
+                    {
+                        <div class="input-group" style="width: 250px;">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="fas fa-search text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control border-start-0" placeholder="Tìm sản phẩm..." id="searchProducts">
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.Products.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="productsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0 ps-4">Sản phẩm</th>
+                                    <th class="border-0 text-center">Giá</th>
+                                    <th class="border-0 text-center">Trạng thái</th>
+                                    <th class="border-0 text-center">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var product in Model.Products.OrderBy(p => p.ProductName))
+                                {
+                                    <tr>
+                                        <td class="ps-4">
+                                            <div class="d-flex align-items-center">
+                                                <div class="bg-success bg-gradient rounded-3 d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                                    <i class="fas fa-spray-can text-white"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">@product.ProductName</div>
+                                                    <small class="text-muted">ID: @product.ProductId</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="fw-semibold text-success">
+                                                @product.Price.ToString("N0") VNĐ
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-success rounded-pill">Hoạt động</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="#" class="btn btn-outline-info" title="Xem chi tiết">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="#" class="btn btn-outline-primary" title="Chỉnh sửa">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                            <h6>Chưa có sản phẩm nào</h6>
+                            <p class="mb-3">Danh mục này chưa có sản phẩm nào được phân loại.</p>
+                            <a href="#" class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i>Thêm sản phẩm đầu tiên
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.Products.Any())
+{
+    <!-- Statistics Row -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2 text-warning"></i>Thống kê chi tiết
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="bg-primary bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-box text-white"></i>
+                                </div>
+                                <div class="fs-4 fw-bold text-primary">@Model.Products.Count</div>
+                                <div class="text-muted small">Tổng sản phẩm</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="bg-success bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-dollar-sign text-white"></i>
+                                </div>
+                                <div class="fs-4 fw-bold text-success">
+                                    @{
+                                        var avgPrice = Model.Products.Any() ? Model.Products.Average(p => p.Price) : 0;
+                                    }
+                                    @(avgPrice > 0 ? avgPrice.ToString("N0") : "0")
+                                </div>
+                                <div class="text-muted small">Giá trung bình (VNĐ)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="bg-info bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-arrow-up text-white"></i>
+                                </div>
+                                <div class="fs-4 fw-bold text-info">
+                                    @(Model.Products.Any() ? Model.Products.Max(p => p.Price).ToString("N0") : "0")
+                                </div>
+                                <div class="text-muted small">Giá cao nhất (VNĐ)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="bg-warning bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-arrow-down text-white"></i>
+                                </div>
+                                <div class="fs-4 fw-bold text-warning">
+                                    @(Model.Products.Any() ? Model.Products.Min(p => p.Price).ToString("N0") : "0")
+                                </div>
+                                <div class="text-muted small">Giá thấp nhất (VNĐ)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>Xác nhận xóa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Bạn có chắc chắn muốn xóa danh mục <strong id="categoryNameToDelete"></strong>?</p>
+                <div id="warningMessage" class="alert alert-warning d-none">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <span id="warningText"></span>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>Xóa
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Search functionality for products
+document.getElementById('searchProducts')?.addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    const tableRows = document.querySelectorAll('#productsTable tbody tr');
+    
+    tableRows.forEach(row => {
+        const productName = row.cells[0].textContent.toLowerCase();
+        if (productName.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// Delete confirmation
+function confirmDelete(categoryId, categoryName, productCount) {
+    document.getElementById('categoryNameToDelete').textContent = categoryName;
+    document.getElementById('deleteForm').action = '@Url.Action("Delete")/' + categoryId;
+    
+    const warningMessage = document.getElementById('warningMessage');
+    const warningText = document.getElementById('warningText');
+    
+    if (productCount > 0) {
+        warningText.textContent = `Danh mục này có ${productCount} sản phẩm. Bạn cần di chuyển hoặc xóa các sản phẩm trước khi xóa danh mục.`;
+        warningMessage.classList.remove('d-none');
+        document.querySelector('#deleteForm button[type="submit"]').disabled = true;
+    } else {
+        warningMessage.classList.add('d-none');
+        document.querySelector('#deleteForm button[type="submit"]').disabled = false;
+    }
+    
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // E to edit
+    if (e.key === 'e' || e.key === 'E') {
+        if (!e.ctrlKey && !e.altKey && document.activeElement.tagName !== 'INPUT') {
+            window.location.href = '@Url.Action("Edit", new { id = Model.CategoryId })';
+        }
+    }
+    
+    // Escape to go back
+    if (e.key === 'Escape') {
+        window.location.href = '@Url.Action("Index")';
+    }
+});
+
+// Tooltip initialization
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips if Bootstrap is available
+    if (typeof bootstrap !== 'undefined') {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+});
+</script>
+
+<style>
+.card {
+    border-radius: 12px;
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-group-sm > .btn {
+    padding: 0.25rem 0.5rem;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.modal-content {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+}
+
+@@media (max-width: 768px) {
+    .btn-group-sm {
+        flex-direction: column;
+    }
+    
+    .btn-group-sm > .btn {
+        border-radius: 0.375rem !important;
+        margin-bottom: 2px;
+    }
+    
+    .col-lg-4, .col-lg-8 {
+        margin-bottom: 1rem;
+    }
+}
+</style>

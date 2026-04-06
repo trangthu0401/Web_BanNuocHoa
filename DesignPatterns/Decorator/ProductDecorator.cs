@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Web_BanNuocHoa.DesignPatterns.Decorator
+namespace PerfumeStore.DesignPatterns.Decorator
 {
 
     public interface IProduct

@@ -71,7 +71,6 @@ namespace PerfumeStore
 			
 			// Đăng ký dịch vụ PaginationService
 			builder.Services.AddScoped<Areas.Admin.Services.IPaginationService, Areas.Admin.Services.PaginationService>();
-
             // --- ĐĂNG KÝ DESIGN PATTERNS ---
             // Đăng ký Caching Proxy Pattern (Trang chủ)
             builder.Services.AddScoped<PerfumeStore.DesignPatterns.Proxy.RealProductQueryService>();
@@ -80,7 +79,20 @@ namespace PerfumeStore
             // Đăng ký Facade Pattern cho luồng thanh toán
             builder.Services.AddScoped<PerfumeStore.DesignPatterns.Facade.ICheckoutFacade, PerfumeStore.DesignPatterns.Facade.CheckoutFacade>();
 
+            // THÊM DÒNG NÀY VÀO ĐÂY NHÉ:
+            builder.Services.AddScoped<PerfumeStore.DesignPatterns.Observer.OrderSubject>();
+
             IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+
+            //// --- ĐĂNG KÝ DESIGN PATTERNS ---
+            //// Đăng ký Caching Proxy Pattern (Trang chủ)
+            //builder.Services.AddScoped<PerfumeStore.DesignPatterns.Proxy.RealProductQueryService>();
+            //builder.Services.AddScoped<PerfumeStore.DesignPatterns.Proxy.IProductQueryService, PerfumeStore.DesignPatterns.Proxy.ProductCacheProxy>();
+
+            //// Đăng ký Facade Pattern cho luồng thanh toán
+            //builder.Services.AddScoped<PerfumeStore.DesignPatterns.Facade.ICheckoutFacade, PerfumeStore.DesignPatterns.Facade.CheckoutFacade>();
+
+            //IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
             PayOS payOS = new PayOS(configuration["Environment:PAYOS_CLIENT_ID"] ?? throw new Exception("Cannot find environment"),
                                 configuration["Environment:PAYOS_API_KEY"] ?? throw new Exception("Cannot find environment"),
