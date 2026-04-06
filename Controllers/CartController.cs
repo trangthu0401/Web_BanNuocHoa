@@ -403,10 +403,10 @@ namespace PerfumeStore.Controllers
                 var vat = CalculateVAT(subtotal);
                 var total = subtotal - discount + shippingFee + vat;
 
-                // --- 1. LƯU ĐƠN HÀNG VÀO DATABASE (ÁP DỤNG FACADE PATTERN) ---
+                // --- 1. LƯU ĐƠN HÀNG VÀO DATABASE ---
                 var order = await _checkoutFacade.PlaceOrderAsync(model, customerEmail, cart, appliedVoucher, total);
 
-                // --- 2. ÁP DỤNG MẪU OBSERVER (TẠO LOG GIẢ QUA STRINGWRITER) ---
+                // --- 2. ÁP DỤNG MẪU OBSERVER ---
                 var orderSubject = new PerfumeStore.DesignPatterns.Observer.OrderSubject();
 
                 orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.EmailObserver(_emailService));
@@ -425,20 +425,24 @@ namespace PerfumeStore.Controllers
                 // --- 3. THỰC THI CÁC TÁC VỤ THẬT TẾ ---
                 try
                 {
-                    // Tác vụ 3.1: Gửi Email xác nhận đơn hàng cho khách
+                    // Tác vụ 3.1: Gửi Email xác nhận đơn hàng cho khách (Văn bản thuần)
                     if (!string.IsNullOrEmpty(customerEmail))
                     {
-                        string emailSub = $"Xác nhận đơn hàng #{order.OrderId} từ PerfumeStore";
-                        string emailBody = $"<h3>Cảm ơn {model.CustomerName} đã đặt hàng!</h3>" +
-                                           $"<p>Mã đơn hàng: <b>{order.OrderId}</b></p>" +
-                                           $"<p>Tổng tiền: <b>{total:N0} VNĐ</b></p>" +
-                                           $"<p>Phương thức: {model.PaymentMethod}</p>";
+                        string emailSub = $"Xac nhan don hang #{order.OrderId} tu PerfumeStore";
+                        string emailBody = $"Chao {model.CustomerName},\n\n" +
+                                           $"Don hang cua ban da duoc he thong ghi nhan thanh cong. Chi tiet:\n\n" +
+                                           $"Ma don hang: #{order.OrderId}\n" +
+                                           $"Tong tien: {total:N0} VND\n" +
+                                           $"Phuong thuc thanh toan: {model.PaymentMethod}\n\n" +
+                                           $"Chung toi se som lien he va tien hanh giao hang cho ban.\n\n" +
+                                           $"Tran trong,\nDoi ngu PerfumeStore";
+
                         await _emailService.SendSimpleTextEmailAsync(customerEmail, emailSub, emailBody);
                     }
 
-                    // Tác vụ 3.2: Trừ số lượng Tồn kho & Gửi Email báo cho Admin/Kho
+                    // Tác vụ 3.2: Trừ số lượng Tồn kho & GHI LOG CHO ADMIN (Không gửi email kho nữa)
                     bool stockUpdated = false;
-                    string inventoryAlertBody = $"<h3>Báo cáo cập nhật kho - Đơn hàng #{order.OrderId}</h3><ul>";
+                    string adminLogMessage = $"[HỆ THỐNG ADMIN] Thông báo tự động: Đã cập nhật kho cho Đơn hàng #{order.OrderId}\nChi tiết:\n";
 
                     foreach (var item in cart)
                     {
@@ -448,20 +452,22 @@ namespace PerfumeStore.Controllers
                             if (prodInDb != null)
                             {
                                 prodInDb.Stock = prodInDb.Stock >= item.Quantity ? prodInDb.Stock - item.Quantity : 0;
-                                inventoryAlertBody += $"<li>{prodInDb.ProductName}: Đã bán <b>{item.Quantity}</b> -> Tồn kho còn: <b>{prodInDb.Stock}</b></li>";
+                                adminLogMessage += $"- Tên SP: {prodInDb.ProductName} | Số lượng bán: {item.Quantity} | Tồn kho mới: {prodInDb.Stock}\n";
                                 stockUpdated = true;
                             }
                         }
                     }
-                    inventoryAlertBody += "</ul>";
 
-                    // Gửi mail cho bộ phận Kho (Bạn có thể thay đổi email này)
+                    // GHI NHẬN VÀO NHẬT KÝ HỆ THỐNG ĐỂ ADMIN KIỂM TRA PHẦN MỀM
                     if (stockUpdated)
                     {
-                        await _emailService.SendSimpleTextEmailAsync("kho@perfumestore.vn", $"[Hệ thống] Trừ kho thành công - Đơn #{order.OrderId}", inventoryAlertBody);
+                        _logger.LogInformation(adminLogMessage);
+
+                        // Nếu sau này bạn tạo bảng Notification trong Database cho Admin, chỉ cần dùng đoạn code sau:
+                        // _context.Notifications.Add(new Notification { Title = "Cập nhật kho", Message = adminLogMessage, CreatedAt = DateTime.Now });
                     }
 
-                    // Tác vụ 3.3: Tích điểm cho Khách hàng & Gửi Email thông báo cộng điểm
+                    // Tác vụ 3.3: Tích điểm cho Khách hàng & Gửi Email thông báo cộng điểm (Văn bản thuần)
                     var customerDb = await _context.Customers.FirstOrDefaultAsync(c => c.Email == customerEmail);
                     if (customerDb != null)
                     {
@@ -470,20 +476,20 @@ namespace PerfumeStore.Controllers
                         {
                             customerDb.SpinNumber = (customerDb.SpinNumber ?? 0) + pointsEarned;
 
-                            // Gửi mail báo cộng điểm cho Khách hàng
                             if (!string.IsNullOrEmpty(customerEmail))
                             {
-                                string pointsSub = $"Bạn vừa được cộng {pointsEarned} điểm thưởng!";
-                                string pointsBody = $"<h3>Chúc mừng {model.CustomerName}!</h3>" +
-                                                    $"<p>Hệ thống đã cộng <b>{pointsEarned} điểm</b> vào tài khoản của bạn từ đơn hàng #{order.OrderId}.</p>" +
-                                                    $"<p>Tổng điểm hiện tại của bạn là: <b>{customerDb.SpinNumber} điểm</b>.</p>" +
-                                                    $"<p>Đăng nhập vào website để xem và sử dụng điểm ngay nhé!</p>";
+                                string pointsSub = $"Thong bao cong diem thuong tu PerfumeStore";
+                                string pointsBody = $"Chao {model.CustomerName},\n\n" +
+                                                    $"Ban vua duoc he thong cong them {pointsEarned} diem vao tai khoan sau khi hoan tat don hang #{order.OrderId}.\n\n" +
+                                                    $"Tong diem hien tai cua ban la: {customerDb.SpinNumber} diem.\n\n" +
+                                                    $"Hay dang nhap vao website de su dung diem thuong nay cho cac lan mua sam tiep theo.\n\n" +
+                                                    $"Cam on ban da ung ho PerfumeStore!";
+
                                 await _emailService.SendSimpleTextEmailAsync(customerEmail, pointsSub, pointsBody);
                             }
                         }
                     }
 
-                    // Lưu thay đổi kho và điểm vào Database
                     await _context.SaveChangesAsync();
                 }
                 catch (Exception bgEx)
@@ -492,7 +498,7 @@ namespace PerfumeStore.Controllers
                 }
                 // --- KẾT THÚC KHỐI THỰC THI THẬT ---
 
-                // --- 4. CHUYỂN HƯỚNG THEO PHƯƠNG THỨC THANH TOÁN (STRATEGY PATTERN) ---
+                // --- 4. CHUYỂN HƯỚNG THEO PHƯƠNG THỨC THANH TOÁN ---
                 var orderInfo = new { OrderId = order.OrderId.ToString(), OrderDate = order.OrderDate, Items = cart.ToList(), Total = order.TotalAmount };
                 HttpContext.Session.SetString("LAST_ORDER", JsonSerializer.Serialize(orderInfo));
 
@@ -608,11 +614,11 @@ namespace PerfumeStore.Controllers
             try
             {
                 HttpContext.Session.Remove("AppliedVoucher");
-                return Json(new { success = true, message = "✅ Đã xóa voucher thành công!" });
+                return Json(new { success = true, message = "Đã xóa voucher thành công!" });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"❌ Lỗi: {ex.Message}" });
+                return Json(new { success = false, message = $"Lỗi: {ex.Message}" });
             }
         }
 
@@ -627,7 +633,7 @@ namespace PerfumeStore.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"❌ Lỗi: {ex.Message}" });
+                return Json(new { success = false, message = $"Lỗi: {ex.Message}" });
             }
         }
 
@@ -661,7 +667,7 @@ namespace PerfumeStore.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting checkout summary");
-                return Json(new { success = false, message = $"❌ Lỗi: {ex.Message}" });
+                return Json(new { success = false, message = $"Lỗi: {ex.Message}" });
             }
         }
 
