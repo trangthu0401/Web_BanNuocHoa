@@ -46,5 +46,3 @@ namespace PerfumeStore.Models.ViewModels
         }
     }
 }
-
-

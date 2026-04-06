@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Net.payOS;
 using PerfumeStore.Areas.Admin.Models;
@@ -79,8 +79,26 @@ namespace PerfumeStore
             builder.Services.AddScoped<PerfumeStore.DesignPatterns.Proxy.RealProductQueryService>();
             builder.Services.AddScoped<PerfumeStore.DesignPatterns.Proxy.IProductQueryService, PerfumeStore.DesignPatterns.Proxy.ProductCacheProxy>();
 
+            // Đăng ký Protection Proxy Pattern (Admin - Xóa Sản Phẩm)
+            builder.Services.AddScoped<PerfumeStore.DesignPatterns.Proxy.ProtectionProxy.RealProductDeleteService>();
+            builder.Services.AddScoped<PerfumeStore.DesignPatterns.Proxy.ProtectionProxy.IProductDeleteService, PerfumeStore.DesignPatterns.Proxy.ProtectionProxy.ProductDeleteProxy>();
+
             // Đăng ký Facade Pattern cho luồng thanh toán
             builder.Services.AddScoped<PerfumeStore.DesignPatterns.Facade.ICheckoutFacade, PerfumeStore.DesignPatterns.Facade.CheckoutFacade>();
+
+            // Đăng ký Observer Pattern cho luồng thanh toán
+            builder.Services.AddScoped<PerfumeStore.DesignPatterns.Observer.IOrderObserver, PerfumeStore.DesignPatterns.Observer.EmailObserver>();
+            builder.Services.AddScoped<PerfumeStore.DesignPatterns.Observer.IOrderObserver, PerfumeStore.DesignPatterns.Observer.InventoryObserver>();
+            builder.Services.AddScoped<PerfumeStore.DesignPatterns.Observer.IOrderObserver, PerfumeStore.DesignPatterns.Observer.MembershipObserver>();
+            builder.Services.AddScoped(provider => {
+                var subject = new PerfumeStore.DesignPatterns.Observer.OrderSubject();
+                var observers = provider.GetServices<PerfumeStore.DesignPatterns.Observer.IOrderObserver>();
+                foreach (var obs in observers)
+                {
+                    subject.Attach(obs);
+                }
+                return subject;
+            });
 
             IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 

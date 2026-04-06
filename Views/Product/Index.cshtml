@@ -1,4 +1,4 @@
-﻿@model PerfumeStore.Models.Product
+@model PerfumeStore.Models.Product
 @{
     ViewData["Title"] = "Chi tiết sản phẩm";
 }
@@ -274,6 +274,38 @@
                     </p>
                 }
             </div>
+
+            <div class="decorator-options my-3 p-3 bg-light border rounded">
+                <p class="mb-2"><strong>Dịch vụ thêm:</strong></p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="hasGiftWrap" name="hasGiftWrap" value="true">
+                    <label class="form-check-label" for="hasGiftWrap">
+                        Gói quà cao cấp <span class="text-danger">(+50.000 ₫)</span>
+                    </label>
+                </div>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="hasEngraveName" name="hasEngraveName" value="true">
+                    <label class="form-check-label" for="hasEngraveName">
+                        Khắc tên theo yêu cầu <span class="text-danger">(+100.000 ₫)</span>
+                    </label>
+                </div>
+                <div id="engraveContentArea" class="mt-2" style="display: none;">
+                    <label class="form-label small">Nội dung cần khắc (Tối đa 20 ký tự):</label>
+                    <input type="text" id="engraveContent" name="engraveContent" class="form-control form-control-sm" placeholder="Ví dụ: Love You 8/3" maxlength="20">
+                </div>
+            </div>
+
+            <script>
+                document.getElementById('hasEngraveName').addEventListener('change', function() {
+                    var contentArea = document.getElementById('engraveContentArea');
+                    if (this.checked) {
+                        contentArea.style.display = 'block';
+                    } else {
+                        contentArea.style.display = 'none';
+                        document.getElementById('engraveContent').value = '';
+                    }
+                });
+            </script>
 
             <div class="d-flex gap-2 mt-3">
                 @{
@@ -617,8 +649,7 @@
                 this.classList.add('disabled');
                 const originalContent = this.innerHTML;
                 this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Đang thêm...';
-
-                // Create form data
+                
                 const formData = new FormData();
                 formData.append('imageUrl', imageUrl);
                 formData.append('name', productName);
@@ -626,7 +657,17 @@
                 if (productId > 0) {
                     formData.append('productId', productId);
                 }
-
+                
+                const hasGiftWrap = document.getElementById('hasGiftWrap')?.checked || false;
+                const hasEngraveName = document.getElementById('hasEngraveName')?.checked || false;
+                const engraveContent = document.getElementById('engraveContent')?.value || '';
+                
+                formData.append('hasGiftWrap', hasGiftWrap);
+                formData.append('hasEngraveName', hasEngraveName);
+                if (hasEngraveName) {
+                    formData.append('engraveContent', engraveContent);
+                }
+                
                 // Get anti-forgery token
                 const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
                 if (token) {
@@ -695,58 +736,60 @@
                 }
                 else
                 {
-                        <text>
-                        // Đã đăng nhập, thêm sản phẩm vào giỏ hàng rồi chuyển đến Checkout
-                        const productId = parseInt(this.dataset.productId) || 0;
-                        const productName = this.dataset.productName || 'Sản phẩm';
-                        const price = parseFloat(this.dataset.productPrice) || 0;
-                        const imageUrl = this.dataset.imageUrl || '/images/placeholder.jpg';
-
-                        // Disable button temporarily
-                        this.disabled = true;
-                        const originalContent = this.innerHTML;
-                        this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Đang xử lý...';
-
-                        // Create form data
-                        const formData = new FormData();
-                        formData.append('imageUrl', imageUrl);
-                        formData.append('name', productName);
-                        formData.append('price', price);
-                        if (productId > 0) {
-                            formData.append('productId', productId);
-                        }
-
-                        // Get anti-forgery token
-                        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-                        if (token) {
-                            formData.append('__RequestVerificationToken', token);
-                        }
-
-                        // Send AJAX request để thêm vào giỏ hàng
-                        fetch('/Cart/AddToCart', {
-                            method: 'POST',
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest'
-                            },
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                // Thêm thành công, chuyển đến trang Checkout
-                                window.location.href = '@Url.Action("Checkout", "Cart")';
-                            } else {
-                                // Hiển thị lỗi
-                                this.disabled = false;
-                                this.innerHTML = originalContent;
-                                showToast(data.message || 'Có lỗi xảy ra khi thêm sản phẩm!', 'error');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error adding to cart:', error);
+                    <text>
+                    // Đã đăng nhập, thêm sản phẩm vào giỏ hàng rồi chuyển đến Checkout
+                    const productId = parseInt(this.dataset.productId) || 0;
+                    const productName = this.dataset.productName || 'Sản phẩm';
+                    const price = parseFloat(this.dataset.productPrice) || 0;
+                    const imageUrl = this.dataset.imageUrl || '/images/placeholder.jpg';
+                    
+                    // Disable button temporarily
+                    this.disabled = true;
+                    const originalContent = this.innerHTML;
+                    this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Đang xử lý...';
+                    
+                    const formData = new FormData();
+                    formData.append('imageUrl', imageUrl);
+                    formData.append('name', productName);
+                    formData.append('price', price);
+                    if (productId > 0) {
+                        formData.append('productId', productId);
+                    }
+                    
+                    const hasGiftWrap = document.getElementById('hasGiftWrap')?.checked || false;
+                    const hasEngraveName = document.getElementById('hasEngraveName')?.checked || false;
+                    const engraveContent = document.getElementById('engraveContent')?.value || '';
+                    
+                    formData.append('hasGiftWrap', hasGiftWrap);
+                    formData.append('hasEngraveName', hasEngraveName);
+                    if (hasEngraveName) {
+                        formData.append('engraveContent', engraveContent);
+                    }
+                    
+                    // Get anti-forgery token
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    if (token) {
+                        formData.append('__RequestVerificationToken', token);
+                    }
+                    
+                    // Send AJAX request để thêm vào giỏ hàng
+                    fetch('/Cart/AddToCart', {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Thêm thành công, chuyển đến trang Checkout
+                            window.location.href = '@Url.Action("Checkout", "Cart")';
+                        } else {
+                            // Hiển thị lỗi
                             this.disabled = false;
                             this.innerHTML = originalContent;
-                            showToast('Có lỗi xảy ra khi thêm sản phẩm!', 'error');
+                            showToast('Có lỗi xảy ra khi thêm sản phẩm!', 'error');}
                         });
                         </text>
                 }

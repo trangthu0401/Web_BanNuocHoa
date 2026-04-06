@@ -14,12 +14,18 @@ namespace PerfumeStore.Areas.Admin.Controllers
         private readonly PerfumeStoreContext _db;
         private readonly DBQueryService.IDbQueryService _queryService;
         private readonly IPaginationService _paginationService;
+        private readonly PerfumeStore.DesignPatterns.Proxy.ProtectionProxy.IProductDeleteService _proxyService;
 
-        public ProductsController(PerfumeStoreContext db, DBQueryService.IDbQueryService queryService, IPaginationService paginationService)
+        public ProductsController(
+            PerfumeStoreContext db, 
+            DBQueryService.IDbQueryService queryService, 
+            IPaginationService paginationService,
+            PerfumeStore.DesignPatterns.Proxy.ProtectionProxy.IProductDeleteService proxyService)
         {
             _db = db;
             _queryService = queryService;
             _paginationService = paginationService;
+            _proxyService = proxyService;
         }
 
         [RequirePermission("View Products")]
@@ -208,28 +214,18 @@ namespace PerfumeStore.Areas.Admin.Controllers
 
             try
             {
-                // Bước 1: Xóa ProductImages trước (để tránh FK constraint)
-                var productImages = await _db.ProductImages
-                    .Where(pi => pi.ProductId == id)
-                    .ToListAsync();
-                
-                if (productImages.Any())
-                {
-                    _db.ProductImages.RemoveRange(productImages);
-                    await _db.SaveChangesAsync();
-                }
+                // Lấy RoleName từ Claims do tiến trình đăng nhập Admin thiết lập
+                var roleName = User.FindFirst("RoleName")?.Value ?? "";
 
-                // Bước 2: Xóa các quan hệ với Categories
-                product.Categories.Clear();
-                
-                // Bước 3: Xóa các quan hệ với Liters nếu có
-                product.Liters.Clear();
-
-                // Bước 4: Xóa Product
-                _db.Products.Remove(product);
-                await _db.SaveChangesAsync();
+                // Gọi xóa thông qua Protection Proxy
+                await _proxyService.DeleteProductAsync(id, roleName);
 
                 TempData["SuccessMessage"] = "Đã xóa sản phẩm thành công!";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                TempData["Error"] = ex.Message;
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
