@@ -442,7 +442,7 @@ namespace PerfumeStore.Controllers
 
                     // Tác vụ 3.2: Trừ số lượng Tồn kho & GHI LOG CHO ADMIN (Không gửi email kho nữa)
                     bool stockUpdated = false;
-                    string adminLogMessage = $"[HỆ THỐNG ADMIN] Thông báo tự động: Đã cập nhật kho cho Đơn hàng #{order.OrderId}\nChi tiết:\n";
+                    string adminLogMessage = $"[HE THONG ADMIN] Thong bao tu dong : da cap nhat cho don hang #{order.OrderId}\nChi tiet:\n";
 
                     foreach (var item in cart)
                     {
