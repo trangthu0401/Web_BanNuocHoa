@@ -409,92 +409,31 @@ namespace PerfumeStore.Controllers
                 // --- 2. ÁP DỤNG MẪU OBSERVER ---
                 var orderSubject = new PerfumeStore.DesignPatterns.Observer.OrderSubject();
 
+                // Bơm Database, Logger, EmailService cho các chuyên gia tự xử lý
                 orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.EmailObserver(_emailService));
-                orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.InventoryObserver());
-                orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.MembershipObserver());
+                orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.InventoryObserver(_context, _logger));
+                orderSubject.Attach(new PerfumeStore.DesignPatterns.Observer.MembershipObserver(_context, _emailService));
 
                 using (var sw = new System.IO.StringWriter())
                 {
                     var originalOut = Console.Out;
                     Console.SetOut(sw);
-                    orderSubject.Notify(order);
+
+                    try
+                    {
+                        // 1 Lệnh duy nhất: Đánh thức các Observer và để chúng tự làm việc thật
+                        await orderSubject.NotifyAsync(order, cart, model, customerEmail);
+
+                        // Lưu lại mọi sự biến động dữ liệu do Observer thay đổi (Kho, Điểm thưởng)
+                        await _context.SaveChangesAsync();
+                    }
+                    catch (Exception bgEx)
+                    {
+                        _logger.LogError(bgEx, "Lỗi khi chạy tác vụ nền bên trong Observer");
+                    }
+
                     Console.SetOut(originalOut);
                     TempData["ObserverLogs"] = sw.ToString().Replace(Environment.NewLine, "<br/>");
-                }
-
-                // --- 3. THỰC THI CÁC TÁC VỤ THẬT TẾ ---
-                try
-                {
-                    // Tác vụ 3.1: Gửi Email xác nhận đơn hàng cho khách (Văn bản thuần)
-                    if (!string.IsNullOrEmpty(customerEmail))
-                    {
-                        string emailSub = $"Xac nhan don hang #{order.OrderId} tu PerfumeStore";
-                        string emailBody = $"Chao {model.CustomerName},\n\n" +
-                                           $"Don hang cua ban da duoc he thong ghi nhan thanh cong. Chi tiet:\n\n" +
-                                           $"Ma don hang: #{order.OrderId}\n" +
-                                           $"Tong tien: {total:N0} VND\n" +
-                                           $"Phuong thuc thanh toan: {model.PaymentMethod}\n\n" +
-                                           $"Chung toi se som lien he va tien hanh giao hang cho ban.\n\n" +
-                                           $"Tran trong,\nDoi ngu PerfumeStore";
-
-                        await _emailService.SendSimpleTextEmailAsync(customerEmail, emailSub, emailBody);
-                    }
-
-                    // Tác vụ 3.2: Trừ số lượng Tồn kho & GHI LOG CHO ADMIN (Không gửi email kho nữa)
-                    bool stockUpdated = false;
-                    string adminLogMessage = $"[HE THONG ADMIN] Thong bao tu dong : da cap nhat cho don hang #{order.OrderId}\nChi tiet:\n";
-
-                    foreach (var item in cart)
-                    {
-                        if (item.ProductId > 0)
-                        {
-                            var prodInDb = await _context.Products.FindAsync(item.ProductId);
-                            if (prodInDb != null)
-                            {
-                                prodInDb.Stock = prodInDb.Stock >= item.Quantity ? prodInDb.Stock - item.Quantity : 0;
-                                adminLogMessage += $"- Tên SP: {prodInDb.ProductName} | Số lượng bán: {item.Quantity} | Tồn kho mới: {prodInDb.Stock}\n";
-                                stockUpdated = true;
-                            }
-                        }
-                    }
-
-                    // GHI NHẬN VÀO NHẬT KÝ HỆ THỐNG ĐỂ ADMIN KIỂM TRA PHẦN MỀM
-                    if (stockUpdated)
-                    {
-                        _logger.LogInformation(adminLogMessage);
-
-                        // Nếu sau này bạn tạo bảng Notification trong Database cho Admin, chỉ cần dùng đoạn code sau:
-                        // _context.Notifications.Add(new Notification { Title = "Cập nhật kho", Message = adminLogMessage, CreatedAt = DateTime.Now });
-                    }
-
-                    // Tác vụ 3.3: Tích điểm cho Khách hàng & Gửi Email thông báo cộng điểm (Văn bản thuần)
-                    var customerDb = await _context.Customers.FirstOrDefaultAsync(c => c.Email == customerEmail);
-                    if (customerDb != null)
-                    {
-                        int pointsEarned = (int)(total / 100000);
-                        if (pointsEarned > 0)
-                        {
-                            customerDb.SpinNumber = (customerDb.SpinNumber ?? 0) + pointsEarned;
-
-                            if (!string.IsNullOrEmpty(customerEmail))
-                            {
-                                string pointsSub = $"Thong bao cong diem thuong tu PerfumeStore";
-                                string pointsBody = $"Chao {model.CustomerName},\n\n" +
-                                                    $"Ban vua duoc he thong cong them {pointsEarned} diem vao tai khoan sau khi hoan tat don hang #{order.OrderId}.\n\n" +
-                                                    $"Tong diem hien tai cua ban la: {customerDb.SpinNumber} diem.\n\n" +
-                                                    $"Hay dang nhap vao website de su dung diem thuong nay cho cac lan mua sam tiep theo.\n\n" +
-                                                    $"Cam on ban da ung ho PerfumeStore!";
-
-                                await _emailService.SendSimpleTextEmailAsync(customerEmail, pointsSub, pointsBody);
-                            }
-                        }
-                    }
-
-                    await _context.SaveChangesAsync();
-                }
-                catch (Exception bgEx)
-                {
-                    _logger.LogError(bgEx, "Lỗi khi chạy tác vụ nền (Trừ kho/Cộng điểm/Gửi mail) sau khi tạo đơn");
                 }
                 // --- KẾT THÚC KHỐI THỰC THI THẬT ---
 
